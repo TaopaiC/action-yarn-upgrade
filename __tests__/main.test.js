@@ -120,6 +120,31 @@ describe('main.js', () => {
     )
   })
 
+  it('calls core.warning when a module returns error status', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'error',
+      error: 'yarn add failed'
+    })
+    reportMock.buildCommitMessage.mockReturnValue(null)
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 0 upgraded, 0 unchanged, 1 failed.'
+    )
+
+    await run()
+
+    expect(core.warning).toHaveBeenCalledWith(expect.stringContaining('lodash'))
+    expect(core.warning).toHaveBeenCalledWith(
+      expect.stringContaining('yarn add failed')
+    )
+    expect(gitMock.commitChanges).not.toHaveBeenCalled()
+  })
+
   it('does not create a PR when no modules were upgraded', async () => {
     core.getInput.mockImplementation((name) => {
       if (name === 'module_list') return 'lodash'
@@ -146,5 +171,32 @@ describe('main.js', () => {
     gitMock.getCurrentBranch.mockRejectedValue(new Error('git error'))
     await run()
     expect(core.setFailed).toHaveBeenCalledWith('git error')
+  })
+
+  it('logs audit findings when runAudit finds vulnerabilities', async () => {
+    auditMock.runAudit.mockResolvedValue([
+      { moduleName: 'lodash', cves: ['CVE-2021-23337'] }
+    ])
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'unchanged'
+    })
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 0 upgraded, 1 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(auditMock.runAudit).toHaveBeenCalled()
+    expect(core.info).toHaveBeenCalledWith(
+      expect.stringContaining('1 vulnerable module(s)')
+    )
+    expect(upgradeMock.upgradeModule).toHaveBeenCalledWith('lodash')
+  })
+
+  it('does not call setFailed when thrown value is not an Error instance', async () => {
+    gitMock.getCurrentBranch.mockRejectedValue('non-error string')
+    await run()
+    expect(core.setFailed).not.toHaveBeenCalled()
   })
 })
