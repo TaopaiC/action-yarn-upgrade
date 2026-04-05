@@ -1,23 +1,35 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
-
-# Add your action's branding here. This will appear on the GitHub Marketplace.
+name: Yarn CVE Auto-Upgrade
+description: >
+  Automatically upgrades yarn packages to resolve CVE vulnerabilities, commits
+  the yarn.lock changes to a new branch, and opens a pull request.
+author: TaopaiC
 branding:
-  icon: heart
-  color: red
+  icon: shield
+  color: green
 
-# Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
+  module_list:
+    description: >
+      Comma-separated list of npm module names to upgrade (e.g. "lodash,axios").
+      If omitted, the action runs `yarn npm audit` to discover vulnerable
+      packages automatically.
+    required: false
+    default: ''
+  github_token:
+    description: >
+      GitHub token used to create the pull request. Typically
+      `secrets.GITHUB_TOKEN`.
     required: true
-    default: '1000'
 
-# Define your outputs here.
 outputs:
-  time:
-    description: Your output description here
+  report:
+    description: >
+      Human-readable upgrade summary listing which modules were upgraded, left
+      unchanged, or failed.
+  pr_url:
+    description: >
+      URL of the pull request created with the yarn.lock changes. Empty if no
+      modules were upgraded.
 
 runs:
   using: node24

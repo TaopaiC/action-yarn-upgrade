@@ -1,10 +1,15 @@
 # Copilot Instructions
 
-This GitHub Action is written in JavaScript and transpiled to a single file.
-Both the JavaScript sources and the **generated** JavaScript code are contained
-in this repository. The JavaScript sources are contained in the `src` directory
-and the code invoked by GitHub Actions is contained in the `dist` directory. A
-GitHub Actions workflow checks that the JavaScript code in `dist` is up-to-date.
+This is a **GitHub Action** that automatically upgrades npm/yarn packages to
+resolve CVE vulnerabilities, commits the resulting `yarn.lock` changes, and
+produces a structured upgrade report. See [`docs/SPEC.md`](../docs/SPEC.md) for
+the full design specification.
+
+The action is written in JavaScript and transpiled to a single file. Both the
+JavaScript sources and the **generated** JavaScript code are contained in this
+repository. The JavaScript sources are contained in the `src` directory and the
+code invoked by GitHub Actions is contained in the `dist` directory. A GitHub
+Actions workflow checks that the JavaScript code in `dist` is up-to-date.
 Therefore, you should not review any changes to the contents of the `dist`
 folder and it is expected that the JavaScript code in `dist` closely mirrors the
 code it is generated from.
@@ -16,6 +21,7 @@ code it is generated from.
 | `__fixtures__/`      | Unit Test Fixtures                                       |
 | `__tests__/`         | Unit Tests                                               |
 | `.devcontainer/`     | Development Container Configuration                      |
+| `docs/`              | Design Specs and Documentation                           |
 | `.github/`           | GitHub Configuration                                     |
 | `.licenses/`         | License Information                                      |
 | `.vscode/`           | Visual Studio Code Configuration                         |
@@ -29,6 +35,8 @@ code it is generated from.
 | `.prettierrc.yml`    | Prettier Formatter Configuration                         |
 | `.yaml-lint.yml`     | YAML Linter Configuration                                |
 | `action.yml`         | GitHub Action Metadata                                   |
+| `actionlint.yml`     | Actionlint Configuration                                 |
+| `.checkov.yml`       | Checkov IaC Security Scan Configuration                  |
 | `CODEOWNERS`         | Code Owners File                                         |
 | `eslint.config.mjs`  | ESLint Configuration                                     |
 | `jest.config.js`     | Jest Configuration                                       |
