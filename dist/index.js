@@ -29405,9 +29405,10 @@ var execExports = requireExec();
  * Returns an empty array when no vulnerabilities are found or the command
  * exits with a non-zero code unrelated to vulnerabilities.
  *
+ * @param {string} [workdir=''] - Working directory for the yarn command.
  * @returns {Promise<AuditEntry[]>}
  */
-async function runAudit() {
+async function runAudit(workdir = '') {
   let stdout = '';
   try {
     // `yarn npm audit` exits with code 1 when vulnerabilities are found —
@@ -29415,7 +29416,7 @@ async function runAudit() {
     const result = await execExports.getExecOutput(
       'yarn',
       ['npm', 'audit', '--recursive', '--json'],
-      { ignoreReturnCode: true }
+      { ignoreReturnCode: true, ...(workdir ? { cwd: workdir } : {}) }
     );
     stdout = result.stdout;
   } catch {
@@ -29468,14 +29469,15 @@ function parseAuditOutput(raw) {
 /**
  * Returns the name of the current git branch.
  *
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<string>} The current branch name.
  */
-async function getCurrentBranch() {
-  const { stdout } = await execExports.getExecOutput('git', [
-    'rev-parse',
-    '--abbrev-ref',
-    'HEAD'
-  ]);
+async function getCurrentBranch(workdir = '') {
+  const { stdout } = await execExports.getExecOutput(
+    'git',
+    ['rev-parse', '--abbrev-ref', 'HEAD'],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  );
   return stdout.trim()
 }
 
@@ -29483,54 +29485,74 @@ async function getCurrentBranch() {
  * Creates and checks out a new git branch.
  *
  * @param {string} branchName - The name of the branch to create.
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<void>}
  */
-async function createBranch(branchName) {
-  await execExports.getExecOutput('git', ['checkout', '-b', branchName]);
+async function createBranch(branchName, workdir = '') {
+  await execExports.getExecOutput(
+    'git',
+    ['checkout', '-b', branchName],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  );
 }
 
 /**
  * Checks whether `yarn.lock` has uncommitted changes relative to HEAD.
  *
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<boolean>} True if yarn.lock has been modified.
  */
-async function hasYarnLockChanged() {
-  const { stdout } = await execExports.getExecOutput('git', [
-    'diff',
-    '--name-only',
-    '--',
-    'yarn.lock'
-  ]);
+async function hasYarnLockChanged(workdir = '') {
+  const { stdout } = await execExports.getExecOutput(
+    'git',
+    ['diff', '--name-only', '--', 'yarn.lock'],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  );
   return stdout.trim().length > 0
 }
 
 /**
  * Stages yarn.lock for the next commit.
  *
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<void>}
  */
-async function stageYarnLock() {
-  await execExports.getExecOutput('git', ['add', 'yarn.lock']);
+async function stageYarnLock(workdir = '') {
+  await execExports.getExecOutput(
+    'git',
+    ['add', 'yarn.lock'],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  );
 }
 
 /**
  * Creates a git commit with the given message.
  *
  * @param {string} message - The commit message.
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<void>}
  */
-async function commitChanges(message) {
-  await execExports.getExecOutput('git', ['commit', '-m', message]);
+async function commitChanges(message, workdir = '') {
+  await execExports.getExecOutput(
+    'git',
+    ['commit', '-m', message],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  );
 }
 
 /**
  * Pushes the given branch to origin.
  *
  * @param {string} branchName - The branch to push.
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<void>}
  */
-async function pushBranch(branchName) {
-  await execExports.getExecOutput('git', ['push', 'origin', branchName]);
+async function pushBranch(branchName, workdir = '') {
+  await execExports.getExecOutput(
+    'git',
+    ['push', 'origin', branchName],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  );
 }
 
 var github = {};
@@ -34371,13 +34393,14 @@ function buildSummary(results) {
  * Retrieves the currently installed version of an npm module via `yarn info`.
  *
  * @param {string} moduleName
+ * @param {string} [workdir=''] - Working directory for the yarn command.
  * @returns {Promise<string>} The version string (e.g. "4.17.20").
  */
-async function getCurrentVersion(moduleName) {
+async function getCurrentVersion(moduleName, workdir = '') {
   const { stdout } = await execExports.getExecOutput(
     'yarn',
     ['info', moduleName, '--json'],
-    { ignoreReturnCode: true }
+    { ignoreReturnCode: true, ...(workdir ? { cwd: workdir } : {}) }
   );
 
   try {
@@ -34407,33 +34430,50 @@ async function getCurrentVersion(moduleName) {
  *  5. Check whether yarn.lock was modified. If yes → record new version.
  *
  * @param {string} moduleName
+ * @param {string} [workdir=''] - Working directory for yarn and git commands.
  * @returns {Promise<UpgradeResult>}
  */
-async function upgradeModule(moduleName) {
+async function upgradeModule(moduleName, workdir = '') {
   let fromVersion = '';
   try {
-    fromVersion = await getCurrentVersion(moduleName);
+    fromVersion = await getCurrentVersion(moduleName, workdir);
     const majorVersion = fromVersion ? fromVersion.split('.')[0] : '';
     const versionRange = majorVersion
       ? `${moduleName}@^${majorVersion}`
       : moduleName;
 
-    await execExports.getExecOutput('yarn', ['add', versionRange]);
-    await execExports.getExecOutput('yarn', ['dedupe', moduleName]);
+    await execExports.getExecOutput(
+      'yarn',
+      ['add', versionRange],
+      ...(workdir ? [{ cwd: workdir }] : [])
+    );
+    await execExports.getExecOutput(
+      'yarn',
+      ['dedupe', moduleName],
+      ...(workdir ? [{ cwd: workdir }] : [])
+    );
     // Restore package.json — we only want yarn.lock changes committed
-    await execExports.getExecOutput('git', ['checkout', 'package.json']);
+    await execExports.getExecOutput(
+      'git',
+      ['checkout', 'package.json'],
+      ...(workdir ? [{ cwd: workdir }] : [])
+    );
 
-    const changed = await hasYarnLockChanged();
+    const changed = await hasYarnLockChanged(workdir);
     if (!changed) {
       return { moduleName, status: 'unchanged' }
     }
 
-    const toVersion = await getCurrentVersion(moduleName);
+    const toVersion = await getCurrentVersion(moduleName, workdir);
     return { moduleName, status: 'upgraded', fromVersion, toVersion }
   } catch (err) {
     // Restore package.json defensively even on error
     try {
-      await execExports.getExecOutput('git', ['checkout', 'package.json']);
+      await execExports.getExecOutput(
+        'git',
+        ['checkout', 'package.json'],
+        ...(workdir ? [{ cwd: workdir }] : [])
+      );
     } catch {
       // best-effort
     }
@@ -34468,9 +34508,10 @@ async function run() {
   try {
     const moduleListInput = getInput('module_list');
     const githubToken = getInput('github_token', { required: true });
+    const workdir = getInput('workdir');
 
     // Record the branch the action was triggered on — this becomes the PR base.
-    const baseBranch = await getCurrentBranch();
+    const baseBranch = await getCurrentBranch(workdir);
     debug(`Base branch: ${baseBranch}`);
 
     /** @type {string[]} */
@@ -34489,7 +34530,7 @@ async function run() {
       info(
         'No module_list provided — running yarn audit to detect vulnerable packages...'
       );
-      const auditEntries = await runAudit();
+      const auditEntries = await runAudit(workdir);
       modules = auditEntries.map((e) => e.moduleName);
       auditMap = new Map(auditEntries.map((e) => [e.moduleName, e.cves]));
       info(
@@ -34511,15 +34552,15 @@ async function run() {
     // Create a dedicated branch for the upgrade changes.
     const prBranch = generateBranchName();
     info(`Creating branch: ${prBranch}`);
-    await createBranch(prBranch);
+    await createBranch(prBranch, workdir);
 
     // Upgrade each module sequentially; errors are caught inside upgradeModule.
     const results = [];
     for (const moduleName of modules) {
       info(`Upgrading ${moduleName}...`);
-      const result = await upgradeModule(moduleName);
+      const result = await upgradeModule(moduleName, workdir);
       if (result.status === 'upgraded') {
-        await stageYarnLock();
+        await stageYarnLock(workdir);
         info(
           `  ✔ ${moduleName}: ${result.fromVersion} → ${result.toVersion}`
         );
@@ -34537,9 +34578,9 @@ async function run() {
 
     if (commitMessage) {
       info('Committing yarn.lock changes...');
-      await commitChanges(commitMessage);
+      await commitChanges(commitMessage, workdir);
       info(`Pushing branch ${prBranch}...`);
-      await pushBranch(prBranch);
+      await pushBranch(prBranch, workdir);
 
       info('Opening pull request...');
       const upgraded = results.filter((r) => r.status === 'upgraded');

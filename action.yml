@@ -15,6 +15,12 @@ inputs:
       packages automatically.
     required: false
     default: ''
+  workdir:
+    description: >
+      Working directory in which to run yarn and git commands. Defaults to the
+      repository root.
+    required: false
+    default: ''
   github_token:
     description: >
       GitHub token used to create the pull request. Typically

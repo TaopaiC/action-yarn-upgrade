@@ -108,4 +108,34 @@ describe('git.js', () => {
       ])
     })
   })
+
+  describe('workdir support', () => {
+    it('passes cwd option when workdir is specified', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: 'main\n',
+        stderr: '',
+        exitCode: 0
+      })
+      await getCurrentBranch('/some/subdir')
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'git',
+        ['rev-parse', '--abbrev-ref', 'HEAD'],
+        { cwd: '/some/subdir' }
+      )
+    })
+
+    it('does not pass cwd option when workdir is empty', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: 'main\n',
+        stderr: '',
+        exitCode: 0
+      })
+      await getCurrentBranch('')
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith('git', [
+        'rev-parse',
+        '--abbrev-ref',
+        'HEAD'
+      ])
+    })
+  })
 })

@@ -1,0 +1,7 @@
+{
+  "name": "test",
+  "packageManager": "yarn@4.13.0",
+  "devDependencies": {
+    "minimatch": "9.0.0"
+  }
+}

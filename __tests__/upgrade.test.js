@@ -167,5 +167,42 @@ describe('upgrade.js', () => {
       expect(result.status).toBe('error')
       expect(result.error).toBe('network failure')
     })
+
+    it('passes cwd option to all commands when workdir is specified', async () => {
+      const workdir = '/custom/dir'
+      execFixture.getExecOutput
+        .mockResolvedValueOnce({
+          stdout: yarnInfoJson('1.0.0'),
+          stderr: '',
+          exitCode: 0
+        }) // getCurrentVersion (from) — with cwd
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git diff (no change)
+
+      await upgradeModule('some-pkg', workdir)
+
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['info', 'some-pkg', '--json'],
+        { ignoreReturnCode: true, cwd: workdir }
+      )
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['add', 'some-pkg@^1'],
+        { cwd: workdir }
+      )
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['dedupe', 'some-pkg'],
+        { cwd: workdir }
+      )
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'git',
+        ['checkout', 'package.json'],
+        { cwd: workdir }
+      )
+    })
   })
 })

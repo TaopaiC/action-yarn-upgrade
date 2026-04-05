@@ -74,5 +74,6 @@
     "string-length": {
       "strip-ansi": "^6.0.1"
     }
-  }
+  },
+  "packageManager": "yarn@4.13.0"
 }

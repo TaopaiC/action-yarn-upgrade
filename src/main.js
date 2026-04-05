@@ -34,9 +34,10 @@ export async function run() {
   try {
     const moduleListInput = core.getInput('module_list')
     const githubToken = core.getInput('github_token', { required: true })
+    const workdir = core.getInput('workdir')
 
     // Record the branch the action was triggered on — this becomes the PR base.
-    const baseBranch = await getCurrentBranch()
+    const baseBranch = await getCurrentBranch(workdir)
     core.debug(`Base branch: ${baseBranch}`)
 
     /** @type {string[]} */
@@ -55,7 +56,7 @@ export async function run() {
       core.info(
         'No module_list provided — running yarn audit to detect vulnerable packages...'
       )
-      const auditEntries = await runAudit()
+      const auditEntries = await runAudit(workdir)
       modules = auditEntries.map((e) => e.moduleName)
       auditMap = new Map(auditEntries.map((e) => [e.moduleName, e.cves]))
       core.info(
@@ -77,15 +78,15 @@ export async function run() {
     // Create a dedicated branch for the upgrade changes.
     const prBranch = generateBranchName()
     core.info(`Creating branch: ${prBranch}`)
-    await createBranch(prBranch)
+    await createBranch(prBranch, workdir)
 
     // Upgrade each module sequentially; errors are caught inside upgradeModule.
     const results = []
     for (const moduleName of modules) {
       core.info(`Upgrading ${moduleName}...`)
-      const result = await upgradeModule(moduleName)
+      const result = await upgradeModule(moduleName, workdir)
       if (result.status === 'upgraded') {
-        await stageYarnLock()
+        await stageYarnLock(workdir)
         core.info(
           `  ✔ ${moduleName}: ${result.fromVersion} → ${result.toVersion}`
         )
@@ -103,9 +104,9 @@ export async function run() {
 
     if (commitMessage) {
       core.info('Committing yarn.lock changes...')
-      await commitChanges(commitMessage)
+      await commitChanges(commitMessage, workdir)
       core.info(`Pushing branch ${prBranch}...`)
-      await pushBranch(prBranch)
+      await pushBranch(prBranch, workdir)
 
       core.info('Opening pull request...')
       const upgraded = results.filter((r) => r.status === 'upgraded')
