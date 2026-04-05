@@ -37,7 +37,9 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^3.0.0"
+    "@actions/core": "^3.0.0",
+    "@actions/exec": "^1.1.1",
+    "@actions/github": "^6.0.1"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.1",
@@ -66,8 +68,11 @@
     "@actions/github@7.0.0": {
       "undici": "^6.24.1"
     },
-    "@actions/github@6.0.1": {
+    "@actions/github@^6.0.1": {
       "undici": "^6.24.1"
+    },
+    "string-length": {
+      "strip-ansi": "^6.0.1"
     }
   }
 }

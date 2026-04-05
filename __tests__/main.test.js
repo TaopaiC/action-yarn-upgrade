@@ -1,62 +1,150 @@
 /**
- * Unit tests for the action's main functionality, src/main.js
+ * Unit tests for src/main.js
  *
- * To mock dependencies in ESM, you can create fixtures that export mock
- * functions and objects. For example, the core module is mocked in this test,
- * so that the actual '@actions/core' module is not imported.
+ * All external dependencies are mocked via fixtures so that no real git,
+ * yarn, or GitHub API calls are made.
  */
 import { jest } from '@jest/globals'
 import * as core from '../__fixtures__/core.js'
-import { wait } from '../__fixtures__/wait.js'
+import * as githubFixture from '../__fixtures__/github.js'
 
-// Mocks should be declared before the module being tested is imported.
+// --- module mocks (must be declared before dynamic import) ---
 jest.unstable_mockModule('@actions/core', () => core)
-jest.unstable_mockModule('../src/wait.js', () => ({ wait }))
+jest.unstable_mockModule('@actions/github', () => githubFixture)
 
-// The module being tested should be imported dynamically. This ensures that the
-// mocks are used in place of any actual dependencies.
+const auditMock = { runAudit: jest.fn() }
+const gitMock = {
+  getCurrentBranch: jest.fn(),
+  createBranch: jest.fn(),
+  stageYarnLock: jest.fn(),
+  commitChanges: jest.fn(),
+  pushBranch: jest.fn()
+}
+const githubMock = { createPullRequest: jest.fn() }
+const upgradeMock = { upgradeModule: jest.fn() }
+const reportMock = { buildCommitMessage: jest.fn(), buildSummary: jest.fn() }
+
+jest.unstable_mockModule('../src/audit.js', () => auditMock)
+jest.unstable_mockModule('../src/git.js', () => gitMock)
+jest.unstable_mockModule('../src/github.js', () => githubMock)
+jest.unstable_mockModule('../src/upgrade.js', () => upgradeMock)
+jest.unstable_mockModule('../src/report.js', () => reportMock)
+
 const { run } = await import('../src/main.js')
 
 describe('main.js', () => {
   beforeEach(() => {
-    // Set the action's inputs as return values from core.getInput().
-    core.getInput.mockImplementation(() => '500')
-
-    // Mock the wait function so that it does not actually wait.
-    wait.mockImplementation(() => Promise.resolve('done!'))
-  })
-
-  afterEach(() => {
-    jest.resetAllMocks()
-  })
-
-  it('Sets the time output', async () => {
-    await run()
-
-    // Verify the time output was set.
-    expect(core.setOutput).toHaveBeenNthCalledWith(
-      1,
-      'time',
-      // Simple regex to match a time string in the format HH:MM:SS.
-      expect.stringMatching(/^\d{2}:\d{2}:\d{2}/)
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return ''
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+    gitMock.getCurrentBranch.mockResolvedValue('main')
+    gitMock.createBranch.mockResolvedValue()
+    gitMock.stageYarnLock.mockResolvedValue()
+    gitMock.commitChanges.mockResolvedValue()
+    gitMock.pushBranch.mockResolvedValue()
+    auditMock.runAudit.mockResolvedValue([])
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'unchanged'
+    })
+    reportMock.buildCommitMessage.mockReturnValue(null)
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 0 module(s): 0 upgraded, 0 unchanged, 0 failed.'
+    )
+    githubMock.createPullRequest.mockResolvedValue(
+      'https://github.com/owner/repo/pull/1'
     )
   })
 
-  it('Sets a failed status', async () => {
-    // Clear the getInput mock and return an invalid value.
-    core.getInput.mockClear().mockReturnValueOnce('this is not a number')
+  afterEach(() => jest.resetAllMocks())
 
-    // Clear the wait mock and return a rejected promise.
-    wait
-      .mockClear()
-      .mockRejectedValueOnce(new Error('milliseconds is not a number'))
+  it('exits early with empty outputs when audit finds no vulnerabilities', async () => {
+    auditMock.runAudit.mockResolvedValue([])
+    await run()
+    expect(core.setOutput).toHaveBeenCalledWith('report', expect.any(String))
+    expect(core.setOutput).toHaveBeenCalledWith('pr_url', '')
+    expect(gitMock.createBranch).not.toHaveBeenCalled()
+  })
+
+  it('uses manually specified module_list instead of running audit', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash, axios'
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'unchanged'
+    })
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 2 module(s): 0 upgraded, 2 unchanged, 0 failed.'
+    )
+
+    await run()
+    expect(auditMock.runAudit).not.toHaveBeenCalled()
+    expect(upgradeMock.upgradeModule).toHaveBeenCalledTimes(2)
+  })
+
+  it('stages yarn.lock and creates a PR when modules are upgraded', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'upgraded',
+      fromVersion: '4.17.20',
+      toVersion: '4.17.21'
+    })
+    reportMock.buildCommitMessage.mockReturnValue(
+      'chore: bump node modules for CVE fixes\n\nUpgraded:\n- lodash: 4.17.20 → 4.17.21'
+    )
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
+    )
 
     await run()
 
-    // Verify that the action was marked as failed.
-    expect(core.setFailed).toHaveBeenNthCalledWith(
-      1,
-      'milliseconds is not a number'
+    expect(gitMock.stageYarnLock).toHaveBeenCalled()
+    expect(gitMock.commitChanges).toHaveBeenCalled()
+    expect(gitMock.pushBranch).toHaveBeenCalled()
+    expect(githubMock.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ base: 'main', token: 'test-token' })
     )
+    expect(core.setOutput).toHaveBeenCalledWith(
+      'pr_url',
+      'https://github.com/owner/repo/pull/1'
+    )
+  })
+
+  it('does not create a PR when no modules were upgraded', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'unchanged'
+    })
+    reportMock.buildCommitMessage.mockReturnValue(null)
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 0 upgraded, 1 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(gitMock.commitChanges).not.toHaveBeenCalled()
+    expect(githubMock.createPullRequest).not.toHaveBeenCalled()
+    expect(core.setOutput).toHaveBeenCalledWith('pr_url', '')
+  })
+
+  it('calls core.setFailed when an unexpected error is thrown', async () => {
+    gitMock.getCurrentBranch.mockRejectedValue(new Error('git error'))
+    await run()
+    expect(core.setFailed).toHaveBeenCalledWith('git error')
   })
 })
