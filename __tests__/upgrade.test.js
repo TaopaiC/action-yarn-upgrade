@@ -30,6 +30,33 @@ describe('upgrade.js', () => {
       })
       expect(await getCurrentVersion('lodash')).toBe('')
     })
+
+    it('falls back to info.version for yarn v1 format', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ version: '2.0.0' }),
+        stderr: '',
+        exitCode: 0
+      })
+      expect(await getCurrentVersion('some-pkg')).toBe('2.0.0')
+    })
+
+    it('falls back to info.data.version when children.Version is absent', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ data: { version: '3.1.0' } }),
+        stderr: '',
+        exitCode: 0
+      })
+      expect(await getCurrentVersion('some-pkg')).toBe('3.1.0')
+    })
+
+    it('returns empty string when info has no recognized version field', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ name: 'some-pkg' }),
+        stderr: '',
+        exitCode: 0
+      })
+      expect(await getCurrentVersion('some-pkg')).toBe('')
+    })
   })
 
   describe('upgradeModule()', () => {
@@ -93,6 +120,52 @@ describe('upgrade.js', () => {
       const result = await upgradeModule('lodash')
       expect(result.status).toBe('error')
       expect(result.error).toBe('yarn add failed')
+    })
+
+    it('handles unknown error type in catch block', async () => {
+      execFixture.getExecOutput
+        .mockResolvedValueOnce({
+          stdout: yarnInfoJson('1.0.0'),
+          stderr: '',
+          exitCode: 0
+        }) // getCurrentVersion
+        .mockRejectedValueOnce('string error') // yarn add throws non-Error
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json (defensive)
+
+      const result = await upgradeModule('some-pkg')
+      expect(result.status).toBe('error')
+      expect(result.error).toBe('string error')
+    })
+
+    it('proceeds without major version when fromVersion is empty', async () => {
+      execFixture.getExecOutput
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // getCurrentVersion → empty
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add (no @^)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git diff (no change)
+
+      const result = await upgradeModule('unknown-pkg')
+      expect(result).toEqual({ moduleName: 'unknown-pkg', status: 'unchanged' })
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
+        'add',
+        'unknown-pkg'
+      ])
+    })
+
+    it('still returns error when defensive git checkout also throws', async () => {
+      execFixture.getExecOutput
+        .mockResolvedValueOnce({
+          stdout: yarnInfoJson('4.17.20'),
+          stderr: '',
+          exitCode: 0
+        }) // getCurrentVersion
+        .mockRejectedValueOnce(new Error('network failure')) // yarn add throws
+        .mockRejectedValueOnce(new Error('git checkout failed')) // defensive git checkout also throws
+
+      const result = await upgradeModule('lodash')
+      expect(result.status).toBe('error')
+      expect(result.error).toBe('network failure')
     })
   })
 })

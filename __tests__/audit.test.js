@@ -58,6 +58,18 @@ describe('audit.js', () => {
       const result = parseAuditOutput(raw)
       expect(result[0].cves).toEqual([])
     })
+
+    it('skips advisories with no module_name', () => {
+      const raw = JSON.stringify({
+        advisories: {
+          1: { cves: ['CVE-2021-0001'] },
+          2: { module_name: 'lodash', cves: ['CVE-2021-23337'] }
+        }
+      })
+      const result = parseAuditOutput(raw)
+      expect(result).toHaveLength(1)
+      expect(result[0].moduleName).toBe('lodash')
+    })
   })
 
   describe('runAudit()', () => {
