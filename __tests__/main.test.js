@@ -179,6 +179,9 @@ describe('main.js', () => {
   })
 
   it('calls core.setFailed when an unexpected error is thrown', async () => {
+    auditMock.runAudit.mockResolvedValue([
+      { moduleName: 'lodash', cves: [] }
+    ])
     gitMock.getCurrentBranch.mockRejectedValue(new Error('git error'))
     await run()
     expect(core.setFailed).toHaveBeenCalledWith('git error')
