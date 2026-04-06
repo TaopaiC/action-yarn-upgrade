@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 import * as os from 'os';
 import os__default from 'os';
@@ -34679,6 +34680,10 @@ async function upgradeModule(moduleName, workdir = '') {
 /**
  * Validates that workdir is within GITHUB_WORKSPACE to prevent path traversal.
  *
+ * Handles both absolute and relative workdir values, and resolves symlinks via
+ * realpathSync to prevent symlink-based escapes. Falls back to path.resolve()
+ * when the path does not yet exist (e.g. synthetic paths in unit tests).
+ *
  * When GITHUB_WORKSPACE is not set (e.g. local development) the check is
  * skipped so local testing is not broken.
  *
@@ -34691,15 +34696,29 @@ function validateWorkdir(workdir) {
   const workspace = process.env.GITHUB_WORKSPACE;
   if (!workspace) return
 
-  const resolvedWorkdir = resolve(workdir);
-  const resolvedWorkspace = resolve(workspace);
+  // resolve(workspace, workdir) handles relative paths; absolute paths are unchanged
+  const absoluteWorkdir = resolve(workspace, workdir);
+
+  // realpathSync follows symlinks; fall back to the resolved path when the
+  // directory does not yet exist
+  let realWorkdir, realWorkspace;
+  try {
+    realWorkdir = realpathSync(absoluteWorkdir);
+  } catch {
+    realWorkdir = absoluteWorkdir;
+  }
+  try {
+    realWorkspace = realpathSync(workspace);
+  } catch {
+    realWorkspace = resolve(workspace);
+  }
 
   if (
-    resolvedWorkdir !== resolvedWorkspace &&
-    !resolvedWorkdir.startsWith(resolvedWorkspace + sep)
+    realWorkdir !== realWorkspace &&
+    !realWorkdir.startsWith(realWorkspace + sep)
   ) {
     throw new Error(
-      `workdir "${workdir}" resolves outside GITHUB_WORKSPACE "${resolvedWorkspace}"`
+      `workdir "${workdir}" resolves outside GITHUB_WORKSPACE "${realWorkspace}"`
     )
   }
 }
