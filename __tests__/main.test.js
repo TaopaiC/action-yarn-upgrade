@@ -544,8 +544,8 @@ describe('validateWorkdir', () => {
       )
     } finally {
       fs.unlinkSync(symlinkPath)
-      fs.rmdirSync(tmpOutside)
-      fs.rmdirSync(tmpWorkspace)
+      fs.rmSync(tmpOutside)
+      fs.rmSync(tmpWorkspace)
     }
   })
 })
