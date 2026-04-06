@@ -21,6 +21,12 @@ inputs:
       repository root.
     required: false
     default: ''
+  base_branch:
+    description: >
+      Target branch for the pull request. Defaults to the branch the action is
+      running on when left empty.
+    required: false
+    default: ''
   github_token:
     description: >
       GitHub token used to create the pull request. Typically
