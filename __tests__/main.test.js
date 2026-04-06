@@ -239,4 +239,55 @@ describe('main.js', () => {
       '/some/subdir'
     )
   })
+
+  it('uses base_branch input as PR base when provided', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      if (name === 'base_branch') return 'release/v2'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'upgraded',
+      fromVersion: '4.17.20',
+      toVersion: '4.17.21'
+    })
+    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(gitMock.getCurrentBranch).not.toHaveBeenCalled()
+    expect(githubMock.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ base: 'release/v2' })
+    )
+  })
+
+  it('falls back to getCurrentBranch when base_branch input is empty', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'upgraded',
+      fromVersion: '4.17.20',
+      toVersion: '4.17.21'
+    })
+    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(gitMock.getCurrentBranch).toHaveBeenCalled()
+    expect(githubMock.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ base: 'main' })
+    )
+  })
 })
