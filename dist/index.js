@@ -34633,6 +34633,10 @@ async function upgradeModule(moduleName, workdir = '') {
       return { moduleName, status: 'unchanged' }
     }
 
+    // Stage yarn.lock so the next module's hasYarnLockChanged() check starts
+    // from this point rather than accumulating all previous changes.
+    await stageYarnLock(workdir);
+
     const toVersions = await getCurrentVersions(moduleName, workdir);
     const toVersion = toVersions.join(', ');
     return { moduleName, status: 'upgraded', fromVersion, toVersion }

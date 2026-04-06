@@ -222,7 +222,7 @@ minimatch@^9.0.0:
 
   describe('upgradeModule()', () => {
     it('returns upgraded when yarn.lock changed', async () => {
-      // Calls in order: yarn info (from), yarn add, yarn dedupe, git checkout, yarn install, git diff, yarn info (to)
+      // Calls in order: yarn info (from), yarn add, yarn dedupe, git checkout, yarn install, git diff, git add yarn.lock, yarn info (to)
       execFixture.getExecOutput
         .mockResolvedValueOnce({
           stdout: yarnInfoJson('4.17.20'),
@@ -238,6 +238,7 @@ minimatch@^9.0.0:
           stderr: '',
           exitCode: 0
         }) // git diff (changed)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git add yarn.lock (stageYarnLock)
         .mockResolvedValueOnce({
           stdout: yarnInfoJson('4.17.21'),
           stderr: '',
@@ -402,6 +403,7 @@ minimatch@^9.0.0:
           stderr: '',
           exitCode: 0
         }) // git diff (changed)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git add yarn.lock (stageYarnLock)
         .mockResolvedValueOnce({
           stdout: yarnInfoJson('9.0.3'),
           stderr: '',
