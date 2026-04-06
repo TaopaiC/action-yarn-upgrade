@@ -22,7 +22,11 @@ const gitMock = {
 }
 const githubMock = { createPullRequest: jest.fn() }
 const upgradeMock = { upgradeModule: jest.fn() }
-const reportMock = { buildCommitMessage: jest.fn(), buildSummary: jest.fn() }
+const reportMock = {
+  buildTitle: jest.fn(),
+  buildCommitMessage: jest.fn(),
+  buildSummary: jest.fn()
+}
 
 jest.unstable_mockModule('../src/audit.js', () => auditMock)
 jest.unstable_mockModule('../src/git.js', () => gitMock)
@@ -50,6 +54,7 @@ describe('main.js', () => {
       status: 'unchanged'
     })
     reportMock.buildCommitMessage.mockReturnValue(null)
+    reportMock.buildTitle.mockReturnValue(null)
     reportMock.buildSummary.mockReturnValue(
       'Processed 0 module(s): 0 upgraded, 0 unchanged, 0 failed.'
     )
@@ -100,7 +105,10 @@ describe('main.js', () => {
       toVersion: '4.17.21'
     })
     reportMock.buildCommitMessage.mockReturnValue(
-      'chore: bump node modules for CVE fixes\n\nUpgraded:\n- lodash: 4.17.20 → 4.17.21'
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes\n\nUpgraded:\n- lodash: 4.17.20 → 4.17.21'
+    )
+    reportMock.buildTitle.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
     )
     reportMock.buildSummary.mockReturnValue(
       'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
@@ -213,7 +221,12 @@ describe('main.js', () => {
       fromVersion: '4.17.20',
       toVersion: '4.17.21'
     })
-    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildCommitMessage.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
+    reportMock.buildTitle.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
     reportMock.buildSummary.mockReturnValue(
       'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
     )
@@ -253,7 +266,12 @@ describe('main.js', () => {
       fromVersion: '4.17.20',
       toVersion: '4.17.21'
     })
-    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildCommitMessage.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
+    reportMock.buildTitle.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
     reportMock.buildSummary.mockReturnValue(
       'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
     )
@@ -278,7 +296,12 @@ describe('main.js', () => {
       fromVersion: '4.17.20',
       toVersion: '4.17.21'
     })
-    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildCommitMessage.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
+    reportMock.buildTitle.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
     reportMock.buildSummary.mockReturnValue(
       'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
     )
@@ -304,7 +327,12 @@ describe('main.js', () => {
       fromVersion: '4.17.20',
       toVersion: '4.17.21'
     })
-    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildCommitMessage.mockReturnValue(
+      'SECURITY: bump 1 module(s) (lodash) for CVE fixes'
+    )
+    reportMock.buildTitle.mockReturnValue(
+      'SECURITY: bump 1 module(s) (lodash) for CVE fixes'
+    )
     reportMock.buildSummary.mockReturnValue(
       'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
     )
@@ -330,7 +358,12 @@ describe('main.js', () => {
       fromVersion: '1.0.0',
       toVersion: '1.1.0'
     })
-    reportMock.buildCommitMessage.mockReturnValue('chore: bump axios')
+    reportMock.buildCommitMessage.mockReturnValue(
+      'CHORE: bump 1 module(s) (axios) for CVE fixes'
+    )
+    reportMock.buildTitle.mockReturnValue(
+      'CHORE: bump 1 module(s) (axios) for CVE fixes'
+    )
     reportMock.buildSummary.mockReturnValue(
       'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
     )
@@ -357,7 +390,12 @@ describe('main.js', () => {
       fromVersion: '4.17.20',
       toVersion: '4.17.21'
     })
-    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildCommitMessage.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
+    reportMock.buildTitle.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
     reportMock.buildSummary.mockReturnValue(
       'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
     )
@@ -383,7 +421,12 @@ describe('main.js', () => {
       fromVersion: '4.17.20',
       toVersion: '4.17.21'
     })
-    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildCommitMessage.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
+    reportMock.buildTitle.mockReturnValue(
+      'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+    )
     reportMock.buildSummary.mockReturnValue(
       'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
     )
