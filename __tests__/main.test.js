@@ -464,6 +464,91 @@ describe('main.js', () => {
       expect.objectContaining({ labels: [] })
     )
   })
+
+  describe('module_list package name validation', () => {
+    it('calls setFailed and skips upgrade when a module name starts with --flag', async () => {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'module_list') return '--flag'
+        if (name === 'github_token') return 'test-token'
+        return ''
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining('--flag')
+      )
+      expect(upgradeMock.upgradeModule).not.toHaveBeenCalled()
+    })
+
+    it('calls setFailed and skips upgrade when a module name contains shell metacharacters', async () => {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'module_list') return 'lodash; rm -rf /'
+        if (name === 'github_token') return 'test-token'
+        return ''
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid npm package name')
+      )
+      expect(upgradeMock.upgradeModule).not.toHaveBeenCalled()
+    })
+
+    it('calls setFailed when a module name contains uppercase letters', async () => {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'module_list') return 'Lodash'
+        if (name === 'github_token') return 'test-token'
+        return ''
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining('Lodash')
+      )
+      expect(upgradeMock.upgradeModule).not.toHaveBeenCalled()
+    })
+
+    it('calls setFailed listing only the invalid names when mixed with valid ones', async () => {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'module_list') return 'lodash, --flag, axios'
+        if (name === 'github_token') return 'test-token'
+        return ''
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining('--flag')
+      )
+      expect(upgradeMock.upgradeModule).not.toHaveBeenCalled()
+    })
+
+    it('accepts a valid scoped package name', async () => {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'module_list') return '@scope/package'
+        if (name === 'github_token') return 'test-token'
+        return ''
+      })
+      upgradeMock.upgradeModule.mockResolvedValue({
+        moduleName: '@scope/package',
+        status: 'unchanged'
+      })
+      reportMock.buildSummary.mockReturnValue(
+        'Processed 1 module(s): 0 upgraded, 1 unchanged, 0 failed.'
+      )
+
+      await run()
+
+      expect(core.setFailed).not.toHaveBeenCalled()
+      expect(upgradeMock.upgradeModule).toHaveBeenCalledWith(
+        '@scope/package',
+        ''
+      )
+    })
+  })
 })
 
 describe('validateWorkdir', () => {

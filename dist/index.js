@@ -34678,6 +34678,17 @@ async function upgradeModule(moduleName, workdir = '') {
 }
 
 /**
+ * Validates that a string is a legal npm package name.
+ * Accepts plain names and scoped names (@scope/package).
+ *
+ * @param {string} name
+ * @returns {boolean}
+ */
+function isValidPackageName(name) {
+  return /^(@[a-z0-9][a-z0-9-._~]*\/)?[a-z0-9][a-z0-9-._~]*$/.test(name)
+}
+
+/**
  * Validates that workdir is within GITHUB_WORKSPACE to prevent path traversal.
  *
  * Handles both absolute and relative workdir values, and resolves symlinks via
@@ -34767,6 +34778,15 @@ async function run() {
         .split(',')
         .map((m) => m.trim())
         .filter(Boolean);
+
+      const invalidModules = modules.filter((m) => !isValidPackageName(m));
+      if (invalidModules.length > 0) {
+        setFailed(
+          `Invalid npm package name(s) in module_list: ${invalidModules.join(', ')}`
+        );
+        return
+      }
+
       auditMap = new Map();
       info(`Using manually specified modules: ${modules.join(', ')}`);
     } else {
