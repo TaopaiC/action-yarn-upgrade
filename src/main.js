@@ -14,6 +14,17 @@ import { buildCommitMessage, buildTitle, buildSummary } from './report.js'
 import { upgradeModule } from './upgrade.js'
 
 /**
+ * Validates that a string is a legal npm package name.
+ * Accepts plain names and scoped names (@scope/package).
+ *
+ * @param {string} name
+ * @returns {boolean}
+ */
+function isValidPackageName(name) {
+  return /^(@[a-z0-9][a-z0-9-._~]*\/)?[a-z0-9][a-z0-9-._~]*$/.test(name)
+}
+
+/**
  * Validates that workdir is within GITHUB_WORKSPACE to prevent path traversal.
  *
  * Handles both absolute and relative workdir values, and resolves symlinks via
@@ -88,11 +99,6 @@ export async function run() {
     const prPrefix = core.getInput('pr_prefix') || 'CHORE'
     const labelsInput = core.getInput('labels')
 
-    // Use the explicit base_branch input when provided; otherwise detect from git.
-    const baseBranch =
-      baseBranchInput.trim() || (await getCurrentBranch(workdir))
-    core.debug(`Base branch: ${baseBranch}`)
-
     /** @type {string[]} */
     let modules
     /** @type {Map<string, string[]>} */
@@ -103,6 +109,15 @@ export async function run() {
         .split(',')
         .map((m) => m.trim())
         .filter(Boolean)
+
+      const invalidModules = modules.filter((m) => !isValidPackageName(m))
+      if (invalidModules.length > 0) {
+        core.setFailed(
+          `Invalid npm package name(s) in module_list: ${invalidModules.join(', ')}`
+        )
+        return
+      }
+
       auditMap = new Map()
       core.info(`Using manually specified modules: ${modules.join(', ')}`)
     } else {
@@ -127,6 +142,11 @@ export async function run() {
       core.info(summary)
       return
     }
+
+    // Use the explicit base_branch input when provided; otherwise detect from git.
+    const baseBranch =
+      baseBranchInput.trim() || (await getCurrentBranch(workdir))
+    core.debug(`Base branch: ${baseBranch}`)
 
     // Create a dedicated branch for the upgrade changes.
     const prBranch = generateBranchName()
