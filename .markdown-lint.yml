@@ -8,6 +8,10 @@ MD004:
 MD013:
   tables: false
 
+# Blank line inside blockquote
+MD028:
+  enabled: false
+
 # Ordered list item prefix
 MD029:
   style: ordered
