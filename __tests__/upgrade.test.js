@@ -371,7 +371,7 @@ minimatch@^9.0.0:
       expect(execFixture.getExecOutput).toHaveBeenCalledWith(
         'yarn',
         undefined,
-        { cwd: workdir }
+        { env: { ...process.env, CI: 'false' }, cwd: workdir }
       )
     })
 
