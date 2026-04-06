@@ -34347,9 +34347,17 @@ var githubExports = requireGithub();
  * @param {string} options.head   - The source branch (chore/cve-upgrades-*).
  * @param {string} options.base   - The target branch (original branch).
  * @param {string} options.token  - GitHub token for authentication.
+ * @param {string[]} [options.labels] - Optional labels to apply to the PR.
  * @returns {Promise<string>} The HTML URL of the created pull request.
  */
-async function createPullRequest({ title, body, head, base, token }) {
+async function createPullRequest({
+  title,
+  body,
+  head,
+  base,
+  token,
+  labels = []
+}) {
   const octokit = githubExports.getOctokit(token);
   const { owner, repo } = githubExports.context.repo;
 
@@ -34361,6 +34369,15 @@ async function createPullRequest({ title, body, head, base, token }) {
     head,
     base
   });
+
+  if (labels.length > 0) {
+    await octokit.rest.issues.addLabels({
+      owner,
+      repo,
+      issue_number: pr.number,
+      labels
+    });
+  }
 
   return pr.html_url
 }
@@ -34566,6 +34583,8 @@ async function run() {
     const githubToken = getInput('github_token', { required: true });
     const workdir = getInput('workdir');
     const baseBranchInput = getInput('base_branch');
+    const prPrefix = getInput('pr_prefix') || 'CHORE';
+    const labelsInput = getInput('labels');
 
     // Use the explicit base_branch input when provided; otherwise detect from git.
     const baseBranch =
@@ -34642,13 +34661,21 @@ async function run() {
 
       info('Opening pull request...');
       const upgraded = results.filter((r) => r.status === 'upgraded');
-      const prTitle = `chore: bump ${upgraded.length} module(s) for CVE fixes`;
+      const moduleNames = upgraded.map((r) => r.moduleName).join(', ');
+      const prTitle = `${prPrefix}: bump ${upgraded.length} module(s) (${moduleNames}) for CVE fixes`;
+      const labels = labelsInput
+        ? labelsInput
+            .split(',')
+            .map((l) => l.trim())
+            .filter(Boolean)
+        : [];
       prUrl = await createPullRequest({
         title: prTitle,
         body: commitMessage,
         head: prBranch,
         base: baseBranch,
-        token: githubToken
+        token: githubToken,
+        labels
       });
       info(`Pull request created: ${prUrl}`);
     } else {

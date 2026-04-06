@@ -36,6 +36,8 @@ export async function run() {
     const githubToken = core.getInput('github_token', { required: true })
     const workdir = core.getInput('workdir')
     const baseBranchInput = core.getInput('base_branch')
+    const prPrefix = core.getInput('pr_prefix') || 'CHORE'
+    const labelsInput = core.getInput('labels')
 
     // Use the explicit base_branch input when provided; otherwise detect from git.
     const baseBranch =
@@ -112,13 +114,21 @@ export async function run() {
 
       core.info('Opening pull request...')
       const upgraded = results.filter((r) => r.status === 'upgraded')
-      const prTitle = `chore: bump ${upgraded.length} module(s) for CVE fixes`
+      const moduleNames = upgraded.map((r) => r.moduleName).join(', ')
+      const prTitle = `${prPrefix}: bump ${upgraded.length} module(s) (${moduleNames}) for CVE fixes`
+      const labels = labelsInput
+        ? labelsInput
+            .split(',')
+            .map((l) => l.trim())
+            .filter(Boolean)
+        : []
       prUrl = await createPullRequest({
         title: prTitle,
         body: commitMessage,
         head: prBranch,
         base: baseBranch,
-        token: githubToken
+        token: githubToken,
+        labels
       })
       core.info(`Pull request created: ${prUrl}`)
     } else {
