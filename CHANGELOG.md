@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.0...v1.0.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* align git commit title with PR title ([#92](https://github.com/TaopaiC/action-yarn-upgrade/issues/92)) ([2b2a53d](https://github.com/TaopaiC/action-yarn-upgrade/commit/2b2a53d01515c3251cf8d32aec14caea02cf0b39))
+
 ## 1.0.0 (2026-04-06)
 
 
