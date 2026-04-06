@@ -5,6 +5,9 @@
  * yarn, or GitHub API calls are made.
  */
 import { jest } from '@jest/globals'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import * as core from '../__fixtures__/core.js'
 import * as githubFixture from '../__fixtures__/github.js'
 
@@ -508,5 +511,34 @@ describe('validateWorkdir', () => {
     expect(() => validateWorkdir('/github/workspace-evil')).toThrow(
       'outside GITHUB_WORKSPACE'
     )
+  })
+
+  it('does not throw when workdir is a relative path inside GITHUB_WORKSPACE', () => {
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    expect(() => validateWorkdir('packages/app')).not.toThrow()
+  })
+
+  it('throws when a relative workdir traverses outside GITHUB_WORKSPACE', () => {
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    expect(() => validateWorkdir('../../etc/secrets')).toThrow(
+      'outside GITHUB_WORKSPACE'
+    )
+  })
+
+  it('throws when workdir is a symlink pointing outside GITHUB_WORKSPACE', () => {
+    const tmpWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), 'test-ws-'))
+    const tmpOutside = fs.mkdtempSync(path.join(os.tmpdir(), 'test-out-'))
+    const symlinkPath = path.join(tmpWorkspace, 'evil-link')
+    fs.symlinkSync(tmpOutside, symlinkPath)
+    try {
+      process.env.GITHUB_WORKSPACE = tmpWorkspace
+      expect(() => validateWorkdir(symlinkPath)).toThrow(
+        'outside GITHUB_WORKSPACE'
+      )
+    } finally {
+      fs.unlinkSync(symlinkPath)
+      fs.rmdirSync(tmpOutside)
+      fs.rmdirSync(tmpWorkspace)
+    }
   })
 })
