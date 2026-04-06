@@ -212,6 +212,8 @@ describe('main.js', () => {
   })
 
   it('passes workdir to all underlying functions when workdir input is set', async () => {
+    const originalWorkspace = process.env.GITHUB_WORKSPACE
+    process.env.GITHUB_WORKSPACE = '/some'
     core.getInput.mockImplementation((name) => {
       if (name === 'module_list') return 'lodash'
       if (name === 'github_token') return 'test-token'
@@ -254,6 +256,7 @@ describe('main.js', () => {
       expect.any(String),
       '/some/subdir'
     )
+    process.env.GITHUB_WORKSPACE = originalWorkspace
   })
 
   it('uses base_branch input as PR base when provided', async () => {
