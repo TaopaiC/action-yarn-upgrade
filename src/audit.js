@@ -13,9 +13,10 @@ import { getExecOutput } from '@actions/exec'
  * Returns an empty array when no vulnerabilities are found or the command
  * exits with a non-zero code unrelated to vulnerabilities.
  *
+ * @param {string} [workdir=''] - Working directory for the yarn command.
  * @returns {Promise<AuditEntry[]>}
  */
-export async function runAudit() {
+export async function runAudit(workdir = '') {
   let stdout = ''
   try {
     // `yarn npm audit` exits with code 1 when vulnerabilities are found —
@@ -23,7 +24,7 @@ export async function runAudit() {
     const result = await getExecOutput(
       'yarn',
       ['npm', 'audit', '--recursive', '--json'],
-      { ignoreReturnCode: true }
+      { ignoreReturnCode: true, ...(workdir ? { cwd: workdir } : {}) }
     )
     stdout = result.stdout
   } catch {

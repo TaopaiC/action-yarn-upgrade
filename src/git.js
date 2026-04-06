@@ -3,14 +3,15 @@ import { getExecOutput } from '@actions/exec'
 /**
  * Returns the name of the current git branch.
  *
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<string>} The current branch name.
  */
-export async function getCurrentBranch() {
-  const { stdout } = await getExecOutput('git', [
-    'rev-parse',
-    '--abbrev-ref',
-    'HEAD'
-  ])
+export async function getCurrentBranch(workdir = '') {
+  const { stdout } = await getExecOutput(
+    'git',
+    ['rev-parse', '--abbrev-ref', 'HEAD'],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  )
   return stdout.trim()
 }
 
@@ -18,52 +19,72 @@ export async function getCurrentBranch() {
  * Creates and checks out a new git branch.
  *
  * @param {string} branchName - The name of the branch to create.
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<void>}
  */
-export async function createBranch(branchName) {
-  await getExecOutput('git', ['checkout', '-b', branchName])
+export async function createBranch(branchName, workdir = '') {
+  await getExecOutput(
+    'git',
+    ['checkout', '-b', branchName],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  )
 }
 
 /**
  * Checks whether `yarn.lock` has uncommitted changes relative to HEAD.
  *
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<boolean>} True if yarn.lock has been modified.
  */
-export async function hasYarnLockChanged() {
-  const { stdout } = await getExecOutput('git', [
-    'diff',
-    '--name-only',
-    '--',
-    'yarn.lock'
-  ])
+export async function hasYarnLockChanged(workdir = '') {
+  const { stdout } = await getExecOutput(
+    'git',
+    ['diff', '--name-only', '--', 'yarn.lock'],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  )
   return stdout.trim().length > 0
 }
 
 /**
  * Stages yarn.lock for the next commit.
  *
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<void>}
  */
-export async function stageYarnLock() {
-  await getExecOutput('git', ['add', 'yarn.lock'])
+export async function stageYarnLock(workdir = '') {
+  await getExecOutput(
+    'git',
+    ['add', 'yarn.lock'],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  )
 }
 
 /**
  * Creates a git commit with the given message.
  *
  * @param {string} message - The commit message.
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<void>}
  */
-export async function commitChanges(message) {
-  await getExecOutput('git', ['commit', '-m', message])
+export async function commitChanges(message, workdir = '') {
+  await getExecOutput(
+    'git',
+    ['commit', '-m', message],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  )
 }
 
 /**
  * Pushes the given branch to origin.
  *
  * @param {string} branchName - The branch to push.
+ * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<void>}
  */
-export async function pushBranch(branchName) {
-  await getExecOutput('git', ['push', 'origin', branchName])
+export async function pushBranch(branchName, workdir = '') {
+  await getExecOutput(
+    'git',
+    ['push', 'origin', branchName],
+    ...(workdir ? [{ cwd: workdir }] : [])
+  )
 }

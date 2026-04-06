@@ -16,13 +16,14 @@ import { hasYarnLockChanged } from './git.js'
  * Retrieves the currently installed version of an npm module via `yarn info`.
  *
  * @param {string} moduleName
+ * @param {string} [workdir=''] - Working directory for the yarn command.
  * @returns {Promise<string>} The version string (e.g. "4.17.20").
  */
-export async function getCurrentVersion(moduleName) {
+export async function getCurrentVersion(moduleName, workdir = '') {
   const { stdout } = await getExecOutput(
     'yarn',
     ['info', moduleName, '--json'],
-    { ignoreReturnCode: true }
+    { ignoreReturnCode: true, ...(workdir ? { cwd: workdir } : {}) }
   )
 
   try {
@@ -52,33 +53,50 @@ export async function getCurrentVersion(moduleName) {
  *  5. Check whether yarn.lock was modified. If yes → record new version.
  *
  * @param {string} moduleName
+ * @param {string} [workdir=''] - Working directory for yarn and git commands.
  * @returns {Promise<UpgradeResult>}
  */
-export async function upgradeModule(moduleName) {
+export async function upgradeModule(moduleName, workdir = '') {
   let fromVersion = ''
   try {
-    fromVersion = await getCurrentVersion(moduleName)
+    fromVersion = await getCurrentVersion(moduleName, workdir)
     const majorVersion = fromVersion ? fromVersion.split('.')[0] : ''
     const versionRange = majorVersion
       ? `${moduleName}@^${majorVersion}`
       : moduleName
 
-    await getExecOutput('yarn', ['add', versionRange])
-    await getExecOutput('yarn', ['dedupe', moduleName])
+    await getExecOutput(
+      'yarn',
+      ['add', versionRange],
+      ...(workdir ? [{ cwd: workdir }] : [])
+    )
+    await getExecOutput(
+      'yarn',
+      ['dedupe', moduleName],
+      ...(workdir ? [{ cwd: workdir }] : [])
+    )
     // Restore package.json — we only want yarn.lock changes committed
-    await getExecOutput('git', ['checkout', 'package.json'])
+    await getExecOutput(
+      'git',
+      ['checkout', 'package.json'],
+      ...(workdir ? [{ cwd: workdir }] : [])
+    )
 
-    const changed = await hasYarnLockChanged()
+    const changed = await hasYarnLockChanged(workdir)
     if (!changed) {
       return { moduleName, status: 'unchanged' }
     }
 
-    const toVersion = await getCurrentVersion(moduleName)
+    const toVersion = await getCurrentVersion(moduleName, workdir)
     return { moduleName, status: 'upgraded', fromVersion, toVersion }
   } catch (err) {
     // Restore package.json defensively even on error
     try {
-      await getExecOutput('git', ['checkout', 'package.json'])
+      await getExecOutput(
+        'git',
+        ['checkout', 'package.json'],
+        ...(workdir ? [{ cwd: workdir }] : [])
+      )
     } catch {
       // best-effort
     }

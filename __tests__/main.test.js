@@ -191,12 +191,52 @@ describe('main.js', () => {
     expect(core.info).toHaveBeenCalledWith(
       expect.stringContaining('1 vulnerable module(s)')
     )
-    expect(upgradeMock.upgradeModule).toHaveBeenCalledWith('lodash')
+    expect(upgradeMock.upgradeModule).toHaveBeenCalledWith('lodash', '')
   })
 
   it('does not call setFailed when thrown value is not an Error instance', async () => {
     gitMock.getCurrentBranch.mockRejectedValue('non-error string')
     await run()
     expect(core.setFailed).not.toHaveBeenCalled()
+  })
+
+  it('passes workdir to all underlying functions when workdir input is set', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      if (name === 'workdir') return '/some/subdir'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'upgraded',
+      fromVersion: '4.17.20',
+      toVersion: '4.17.21'
+    })
+    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(gitMock.getCurrentBranch).toHaveBeenCalledWith('/some/subdir')
+    expect(gitMock.createBranch).toHaveBeenCalledWith(
+      expect.any(String),
+      '/some/subdir'
+    )
+    expect(upgradeMock.upgradeModule).toHaveBeenCalledWith(
+      'lodash',
+      '/some/subdir'
+    )
+    expect(gitMock.stageYarnLock).toHaveBeenCalledWith('/some/subdir')
+    expect(gitMock.commitChanges).toHaveBeenCalledWith(
+      expect.any(String),
+      '/some/subdir'
+    )
+    expect(gitMock.pushBranch).toHaveBeenCalledWith(
+      expect.any(String),
+      '/some/subdir'
+    )
   })
 })

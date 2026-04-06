@@ -58,6 +58,7 @@ jobs:
         uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          workdir: 'test'
 
       - name: Print Output
         id: output

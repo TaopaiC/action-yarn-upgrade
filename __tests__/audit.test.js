@@ -102,5 +102,33 @@ describe('audit.js', () => {
       execFixture.getExecOutput.mockRejectedValue(new Error('exec failed'))
       expect(await runAudit()).toEqual([])
     })
+
+    it('passes cwd option when workdir is specified', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ advisories: {} }),
+        stderr: '',
+        exitCode: 0
+      })
+      await runAudit('/custom/dir')
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['npm', 'audit', '--recursive', '--json'],
+        { ignoreReturnCode: true, cwd: '/custom/dir' }
+      )
+    })
+
+    it('does not pass cwd option when workdir is empty', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ advisories: {} }),
+        stderr: '',
+        exitCode: 0
+      })
+      await runAudit('')
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['npm', 'audit', '--recursive', '--json'],
+        { ignoreReturnCode: true }
+      )
+    })
   })
 })
