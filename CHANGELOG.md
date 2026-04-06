@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.2](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.1...v1.0.2) (2026-04-06)
+
+
+### Bug Fixes
+
+* validate npm package names in module_list input ([#109](https://github.com/TaopaiC/action-yarn-upgrade/issues/109)) ([995d621](https://github.com/TaopaiC/action-yarn-upgrade/commit/995d6213e70f836dc05bc5bbb25a60f2cfd0892c))
+* validate workdir against GITHUB_WORKSPACE to prevent path traversal ([#98](https://github.com/TaopaiC/action-yarn-upgrade/issues/98)) ([f1650fb](https://github.com/TaopaiC/action-yarn-upgrade/commit/f1650fb31053b3b60a65fd12fc410b5bdd88c42b))
+
 ## [1.0.1](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.0...v1.0.1) (2026-04-06)
 
 
