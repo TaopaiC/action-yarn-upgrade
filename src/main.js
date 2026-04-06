@@ -1,3 +1,5 @@
+import { realpathSync } from 'node:fs'
+import { resolve, sep } from 'node:path'
 import * as core from '@actions/core'
 import { runAudit } from './audit.js'
 import {
@@ -10,6 +12,52 @@ import {
 import { createPullRequest } from './github.js'
 import { buildCommitMessage, buildTitle, buildSummary } from './report.js'
 import { upgradeModule } from './upgrade.js'
+
+/**
+ * Validates that workdir is within GITHUB_WORKSPACE to prevent path traversal.
+ *
+ * Handles both absolute and relative workdir values, and resolves symlinks via
+ * realpathSync to prevent symlink-based escapes. Falls back to path.resolve()
+ * when the path does not yet exist (e.g. synthetic paths in unit tests).
+ *
+ * When GITHUB_WORKSPACE is not set (e.g. local development) the check is
+ * skipped so local testing is not broken.
+ *
+ * @param {string} workdir - The working directory input value.
+ * @throws {Error} When workdir resolves to a path outside GITHUB_WORKSPACE.
+ */
+export function validateWorkdir(workdir) {
+  if (!workdir) return
+
+  const workspace = process.env.GITHUB_WORKSPACE
+  if (!workspace) return
+
+  // resolve(workspace, workdir) handles relative paths; absolute paths are unchanged
+  const absoluteWorkdir = resolve(workspace, workdir)
+
+  // realpathSync follows symlinks; fall back to the resolved path when the
+  // directory does not yet exist
+  let realWorkdir, realWorkspace
+  try {
+    realWorkdir = realpathSync(absoluteWorkdir)
+  } catch {
+    realWorkdir = absoluteWorkdir
+  }
+  try {
+    realWorkspace = realpathSync(workspace)
+  } catch {
+    realWorkspace = resolve(workspace)
+  }
+
+  if (
+    realWorkdir !== realWorkspace &&
+    !realWorkdir.startsWith(realWorkspace + sep)
+  ) {
+    throw new Error(
+      `workdir "${workdir}" resolves outside GITHUB_WORKSPACE "${realWorkspace}"`
+    )
+  }
+}
 
 /**
  * Generates a timestamp-based branch name for the CVE upgrade PR.
@@ -35,6 +83,7 @@ export async function run() {
     const moduleListInput = core.getInput('module_list')
     const githubToken = core.getInput('github_token', { required: true })
     const workdir = core.getInput('workdir')
+    validateWorkdir(workdir)
     const baseBranchInput = core.getInput('base_branch')
     const prPrefix = core.getInput('pr_prefix') || 'CHORE'
     const labelsInput = core.getInput('labels')
