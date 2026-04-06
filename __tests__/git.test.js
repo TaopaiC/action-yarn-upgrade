@@ -24,6 +24,37 @@ describe('git.js', () => {
       })
       expect(await getCurrentBranch()).toBe('main')
     })
+
+    it('falls back to GITHUB_REF_NAME when in detached HEAD state', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: 'HEAD\n',
+        stderr: '',
+        exitCode: 0
+      })
+      const original = process.env.GITHUB_REF_NAME
+      process.env.GITHUB_REF_NAME = 'main'
+      try {
+        expect(await getCurrentBranch()).toBe('main')
+      } finally {
+        if (original === undefined) delete process.env.GITHUB_REF_NAME
+        else process.env.GITHUB_REF_NAME = original
+      }
+    })
+
+    it('returns HEAD when detached and GITHUB_REF_NAME is not set', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: 'HEAD\n',
+        stderr: '',
+        exitCode: 0
+      })
+      const original = process.env.GITHUB_REF_NAME
+      delete process.env.GITHUB_REF_NAME
+      try {
+        expect(await getCurrentBranch()).toBe('HEAD')
+      } finally {
+        if (original !== undefined) process.env.GITHUB_REF_NAME = original
+      }
+    })
   })
 
   describe('createBranch()', () => {
