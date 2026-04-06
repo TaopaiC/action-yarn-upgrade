@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { getExecOutput } from '@actions/exec'
-import { hasYarnLockChanged } from './git.js'
+import { hasYarnLockChanged, stageYarnLock } from './git.js'
 
 /**
  * @typedef {'upgraded' | 'unchanged' | 'error'} UpgradeStatus
@@ -182,6 +182,10 @@ export async function upgradeModule(moduleName, workdir = '') {
     if (!changed) {
       return { moduleName, status: 'unchanged' }
     }
+
+    // Stage yarn.lock so the next module's hasYarnLockChanged() check starts
+    // from this point rather than accumulating all previous changes.
+    await stageYarnLock(workdir)
 
     const toVersions = await getCurrentVersions(moduleName, workdir)
     const toVersion = toVersions.join(', ')
