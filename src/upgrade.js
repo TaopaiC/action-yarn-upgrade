@@ -170,11 +170,12 @@ export async function upgradeModule(moduleName, workdir = '') {
         ['checkout', 'package.json'],
         ...(workdir ? [{ cwd: workdir }] : [])
       )
-      await getExecOutput(
-        'yarn',
-        undefined,
-        ...(workdir ? [{ cwd: workdir }] : [])
-      )
+      // Run a bare install to sync node_modules with the restored package.json.
+      // CI=false prevents interactive warnings from being treated as errors.
+      await getExecOutput('yarn', undefined, {
+        env: { ...process.env, CI: 'false' },
+        ...(workdir ? { cwd: workdir } : {})
+      })
     }
 
     const changed = await hasYarnLockChanged(workdir)
