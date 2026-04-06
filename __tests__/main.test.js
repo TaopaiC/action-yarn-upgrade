@@ -418,18 +418,22 @@ describe('main.js', () => {
   it('calls core.setFailed when workdir is outside GITHUB_WORKSPACE', async () => {
     const originalWorkspace = process.env.GITHUB_WORKSPACE
     process.env.GITHUB_WORKSPACE = '/github/workspace'
-    core.getInput.mockImplementation((name) => {
-      if (name === 'workdir') return '/etc/secrets'
-      if (name === 'github_token') return 'test-token'
-      return ''
-    })
 
-    await run()
+    try {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'workdir') return '/etc/secrets'
+        if (name === 'github_token') return 'test-token'
+        return ''
+      })
 
-    expect(core.setFailed).toHaveBeenCalledWith(
-      expect.stringContaining('outside GITHUB_WORKSPACE')
-    )
-    process.env.GITHUB_WORKSPACE = originalWorkspace
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining('outside GITHUB_WORKSPACE')
+      )
+    } finally {
+      process.env.GITHUB_WORKSPACE = originalWorkspace
+    }
   })
 
   it('passes empty labels array when labels input is empty', async () => {
