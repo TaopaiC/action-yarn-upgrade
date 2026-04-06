@@ -1,3 +1,4 @@
+import { join, resolve, sep } from 'node:path';
 import * as os from 'os';
 import os__default from 'os';
 import * as crypto from 'crypto';
@@ -33,7 +34,6 @@ import require$$5$3 from 'string_decoder';
 import child from 'child_process';
 import require$$6$1 from 'timers';
 import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -34677,6 +34677,34 @@ async function upgradeModule(moduleName, workdir = '') {
 }
 
 /**
+ * Validates that workdir is within GITHUB_WORKSPACE to prevent path traversal.
+ *
+ * When GITHUB_WORKSPACE is not set (e.g. local development) the check is
+ * skipped so local testing is not broken.
+ *
+ * @param {string} workdir - The working directory input value.
+ * @throws {Error} When workdir resolves to a path outside GITHUB_WORKSPACE.
+ */
+function validateWorkdir(workdir) {
+  if (!workdir) return
+
+  const workspace = process.env.GITHUB_WORKSPACE;
+  if (!workspace) return
+
+  const resolvedWorkdir = resolve(workdir);
+  const resolvedWorkspace = resolve(workspace);
+
+  if (
+    resolvedWorkdir !== resolvedWorkspace &&
+    !resolvedWorkdir.startsWith(resolvedWorkspace + sep)
+  ) {
+    throw new Error(
+      `workdir "${workdir}" resolves outside GITHUB_WORKSPACE "${resolvedWorkspace}"`
+    )
+  }
+}
+
+/**
  * Generates a timestamp-based branch name for the CVE upgrade PR.
  *
  * @returns {string}
@@ -34700,6 +34728,7 @@ async function run() {
     const moduleListInput = getInput('module_list');
     const githubToken = getInput('github_token', { required: true });
     const workdir = getInput('workdir');
+    validateWorkdir(workdir);
     const baseBranchInput = getInput('base_branch');
     const prPrefix = getInput('pr_prefix') || 'CHORE';
     const labelsInput = getInput('labels');

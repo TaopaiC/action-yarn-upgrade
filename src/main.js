@@ -1,3 +1,4 @@
+import { resolve, sep } from 'node:path'
 import * as core from '@actions/core'
 import { runAudit } from './audit.js'
 import {
@@ -10,6 +11,34 @@ import {
 import { createPullRequest } from './github.js'
 import { buildCommitMessage, buildTitle, buildSummary } from './report.js'
 import { upgradeModule } from './upgrade.js'
+
+/**
+ * Validates that workdir is within GITHUB_WORKSPACE to prevent path traversal.
+ *
+ * When GITHUB_WORKSPACE is not set (e.g. local development) the check is
+ * skipped so local testing is not broken.
+ *
+ * @param {string} workdir - The working directory input value.
+ * @throws {Error} When workdir resolves to a path outside GITHUB_WORKSPACE.
+ */
+export function validateWorkdir(workdir) {
+  if (!workdir) return
+
+  const workspace = process.env.GITHUB_WORKSPACE
+  if (!workspace) return
+
+  const resolvedWorkdir = resolve(workdir)
+  const resolvedWorkspace = resolve(workspace)
+
+  if (
+    resolvedWorkdir !== resolvedWorkspace &&
+    !resolvedWorkdir.startsWith(resolvedWorkspace + sep)
+  ) {
+    throw new Error(
+      `workdir "${workdir}" resolves outside GITHUB_WORKSPACE "${resolvedWorkspace}"`
+    )
+  }
+}
 
 /**
  * Generates a timestamp-based branch name for the CVE upgrade PR.
@@ -35,6 +64,7 @@ export async function run() {
     const moduleListInput = core.getInput('module_list')
     const githubToken = core.getInput('github_token', { required: true })
     const workdir = core.getInput('workdir')
+    validateWorkdir(workdir)
     const baseBranchInput = core.getInput('base_branch')
     const prPrefix = core.getInput('pr_prefix') || 'CHORE'
     const labelsInput = core.getInput('labels')

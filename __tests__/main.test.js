@@ -34,7 +34,7 @@ jest.unstable_mockModule('../src/github.js', () => githubMock)
 jest.unstable_mockModule('../src/upgrade.js', () => upgradeMock)
 jest.unstable_mockModule('../src/report.js', () => reportMock)
 
-const { run } = await import('../src/main.js')
+const { run, validateWorkdir } = await import('../src/main.js')
 
 describe('main.js', () => {
   beforeEach(() => {
@@ -409,6 +409,23 @@ describe('main.js', () => {
     )
   })
 
+  it('calls core.setFailed when workdir is outside GITHUB_WORKSPACE', async () => {
+    const originalWorkspace = process.env.GITHUB_WORKSPACE
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    core.getInput.mockImplementation((name) => {
+      if (name === 'workdir') return '/etc/secrets'
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('outside GITHUB_WORKSPACE')
+    )
+    process.env.GITHUB_WORKSPACE = originalWorkspace
+  })
+
   it('passes empty labels array when labels input is empty', async () => {
     core.getInput.mockImplementation((name) => {
       if (name === 'module_list') return 'lodash'
@@ -435,6 +452,61 @@ describe('main.js', () => {
 
     expect(githubMock.createPullRequest).toHaveBeenCalledWith(
       expect.objectContaining({ labels: [] })
+    )
+  })
+})
+
+describe('validateWorkdir', () => {
+  const originalWorkspace = process.env.GITHUB_WORKSPACE
+
+  afterEach(() => {
+    if (originalWorkspace === undefined) {
+      delete process.env.GITHUB_WORKSPACE
+    } else {
+      process.env.GITHUB_WORKSPACE = originalWorkspace
+    }
+  })
+
+  it('does nothing when workdir is empty', () => {
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    expect(() => validateWorkdir('')).not.toThrow()
+  })
+
+  it('does nothing when GITHUB_WORKSPACE is not set', () => {
+    delete process.env.GITHUB_WORKSPACE
+    expect(() => validateWorkdir('/any/path')).not.toThrow()
+  })
+
+  it('does not throw when workdir equals GITHUB_WORKSPACE', () => {
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    expect(() => validateWorkdir('/github/workspace')).not.toThrow()
+  })
+
+  it('does not throw when workdir is a subdirectory of GITHUB_WORKSPACE', () => {
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    expect(() =>
+      validateWorkdir('/github/workspace/packages/app')
+    ).not.toThrow()
+  })
+
+  it('throws when workdir is outside GITHUB_WORKSPACE', () => {
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    expect(() => validateWorkdir('/etc/secrets')).toThrow(
+      'outside GITHUB_WORKSPACE'
+    )
+  })
+
+  it('throws when workdir uses path traversal to escape GITHUB_WORKSPACE', () => {
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    expect(() =>
+      validateWorkdir('/github/workspace/../../etc/secrets')
+    ).toThrow('outside GITHUB_WORKSPACE')
+  })
+
+  it('does not confuse a path that shares a prefix but is not a subdirectory', () => {
+    process.env.GITHUB_WORKSPACE = '/github/workspace'
+    expect(() => validateWorkdir('/github/workspace-evil')).toThrow(
+      'outside GITHUB_WORKSPACE'
     )
   })
 })
