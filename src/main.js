@@ -35,9 +35,11 @@ export async function run() {
     const moduleListInput = core.getInput('module_list')
     const githubToken = core.getInput('github_token', { required: true })
     const workdir = core.getInput('workdir')
+    const baseBranchInput = core.getInput('base_branch')
 
-    // Record the branch the action was triggered on — this becomes the PR base.
-    const baseBranch = await getCurrentBranch(workdir)
+    // Use the explicit base_branch input when provided; otherwise detect from git.
+    const baseBranch =
+      baseBranchInput.trim() || (await getCurrentBranch(workdir))
     core.debug(`Base branch: ${baseBranch}`)
 
     /** @type {string[]} */

@@ -29519,6 +29519,9 @@ function deduplicateEntries(entries) {
 /**
  * Returns the name of the current git branch.
  *
+ * Falls back to the `GITHUB_REF_NAME` environment variable when git reports a
+ * detached HEAD (e.g. in GitHub Actions `pull_request` event checkouts).
+ *
  * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<string>} The current branch name.
  */
@@ -29528,7 +29531,10 @@ async function getCurrentBranch(workdir = '') {
     ['rev-parse', '--abbrev-ref', 'HEAD'],
     ...(workdir ? [{ cwd: workdir }] : [])
   );
-  return stdout.trim()
+  const branch = stdout.trim();
+  // In detached HEAD state (e.g. pull_request event), fall back to the env var
+  // set by GitHub Actions which always contains the triggering branch name.
+  return branch === 'HEAD' ? (process.env.GITHUB_REF_NAME ?? branch) : branch
 }
 
 /**
@@ -34559,9 +34565,11 @@ async function run() {
     const moduleListInput = getInput('module_list');
     const githubToken = getInput('github_token', { required: true });
     const workdir = getInput('workdir');
+    const baseBranchInput = getInput('base_branch');
 
-    // Record the branch the action was triggered on — this becomes the PR base.
-    const baseBranch = await getCurrentBranch(workdir);
+    // Use the explicit base_branch input when provided; otherwise detect from git.
+    const baseBranch =
+      baseBranchInput.trim() || (await getCurrentBranch(workdir));
     debug(`Base branch: ${baseBranch}`);
 
     /** @type {string[]} */

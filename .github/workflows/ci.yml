@@ -66,6 +66,9 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workdir: 'test'
+          base_branch:
+            ${{ github.event_name == 'pull_request' && github.base_ref ||
+            github.ref_name }}
 
       - name: Print Output
         id: output
