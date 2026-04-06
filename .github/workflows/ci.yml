@@ -8,13 +8,12 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
-
 jobs:
   test-javascript:
     name: JavaScript Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -47,11 +46,21 @@ jobs:
   test-action:
     name: GitHub Actions Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout
         id: checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Set up Git user
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
 
       - name: Test Local Action
         id: test-action
@@ -59,6 +68,9 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workdir: 'test'
+          base_branch:
+            ${{ github.event_name == 'pull_request' && github.head_ref ||
+            github.ref_name }}
 
       - name: Print Output
         id: output
