@@ -99,11 +99,6 @@ export async function run() {
     const prPrefix = core.getInput('pr_prefix') || 'CHORE'
     const labelsInput = core.getInput('labels')
 
-    // Use the explicit base_branch input when provided; otherwise detect from git.
-    const baseBranch =
-      baseBranchInput.trim() || (await getCurrentBranch(workdir))
-    core.debug(`Base branch: ${baseBranch}`)
-
     /** @type {string[]} */
     let modules
     /** @type {Map<string, string[]>} */
@@ -147,6 +142,11 @@ export async function run() {
       core.info(summary)
       return
     }
+
+    // Use the explicit base_branch input when provided; otherwise detect from git.
+    const baseBranch =
+      baseBranchInput.trim() || (await getCurrentBranch(workdir))
+    core.debug(`Base branch: ${baseBranch}`)
 
     // Create a dedicated branch for the upgrade changes.
     const prBranch = generateBranchName()

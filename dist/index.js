@@ -34763,11 +34763,6 @@ async function run() {
     const prPrefix = getInput('pr_prefix') || 'CHORE';
     const labelsInput = getInput('labels');
 
-    // Use the explicit base_branch input when provided; otherwise detect from git.
-    const baseBranch =
-      baseBranchInput.trim() || (await getCurrentBranch(workdir));
-    debug(`Base branch: ${baseBranch}`);
-
     /** @type {string[]} */
     let modules;
     /** @type {Map<string, string[]>} */
@@ -34811,6 +34806,11 @@ async function run() {
       info(summary);
       return
     }
+
+    // Use the explicit base_branch input when provided; otherwise detect from git.
+    const baseBranch =
+      baseBranchInput.trim() || (await getCurrentBranch(workdir));
+    debug(`Base branch: ${baseBranch}`);
 
     // Create a dedicated branch for the upgrade changes.
     const prBranch = generateBranchName();
