@@ -1,0 +1,6 @@
+{
+  "name": "mini5",
+  "dependencies": {
+    "minimatch": "^5.0.0"
+  }
+}
