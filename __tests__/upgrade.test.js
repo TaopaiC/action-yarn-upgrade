@@ -3,7 +3,15 @@ import * as execFixture from '../__fixtures__/exec.js'
 
 jest.unstable_mockModule('@actions/exec', () => execFixture)
 
-const { getCurrentVersion, upgradeModule } = await import('../src/upgrade.js')
+const readFileMock = jest.fn().mockRejectedValue(new Error('ENOENT'))
+jest.unstable_mockModule('node:fs/promises', () => ({ readFile: readFileMock }))
+
+const {
+  getCurrentVersion,
+  extractMajorVersions,
+  getInstalledMajorVersions,
+  upgradeModule
+} = await import('../src/upgrade.js')
 
 /** Helper: build Yarn Berry–style info JSON */
 const yarnInfoJson = (version) =>
@@ -56,6 +64,125 @@ describe('upgrade.js', () => {
         exitCode: 0
       })
       expect(await getCurrentVersion('some-pkg')).toBe('')
+    })
+  })
+
+  describe('extractMajorVersions()', () => {
+    it('returns empty array for empty content', () => {
+      expect(extractMajorVersions('', 'minimatch')).toEqual([])
+    })
+
+    it('returns empty array for null/undefined content', () => {
+      expect(extractMajorVersions(null, 'minimatch')).toEqual([])
+      expect(extractMajorVersions(undefined, 'minimatch')).toEqual([])
+    })
+
+    it('parses a single major version from Yarn v1 lockfile', () => {
+      const content = `
+minimatch@^9.0.0:
+  version "9.0.4"
+  resolved "https://registry.npmjs.org/..."
+`
+      expect(extractMajorVersions(content, 'minimatch')).toEqual(['9'])
+    })
+
+    it('parses multiple major versions from Yarn v1 lockfile', () => {
+      const content = `
+minimatch@^8.0.0:
+  version "8.0.4"
+  resolved "https://registry.npmjs.org/..."
+
+minimatch@^9.0.0, minimatch@^9.0.1:
+  version "9.0.4"
+  resolved "https://registry.npmjs.org/..."
+`
+      expect(extractMajorVersions(content, 'minimatch')).toEqual(['8', '9'])
+    })
+
+    it('parses multiple major versions from Yarn Berry lockfile', () => {
+      const content = `
+"minimatch@npm:^8.0.0":
+  version: 8.0.4
+  resolution: "minimatch@npm:8.0.4"
+
+"minimatch@npm:^9.0.0, minimatch@npm:^9.0.1":
+  version: 9.0.4
+  resolution: "minimatch@npm:9.0.4"
+`
+      expect(extractMajorVersions(content, 'minimatch')).toEqual(['8', '9'])
+    })
+
+    it('deduplicates when the same major appears in multiple entries', () => {
+      const content = `
+minimatch@^9.0.0:
+  version "9.0.0"
+
+minimatch@^9.0.1:
+  version "9.0.4"
+`
+      expect(extractMajorVersions(content, 'minimatch')).toEqual(['9'])
+    })
+
+    it('does not match other packages with similar prefix', () => {
+      const content = `
+minimatch-extra@^1.0.0:
+  version "1.0.0"
+
+minimatch@^9.0.0:
+  version "9.0.4"
+`
+      expect(extractMajorVersions(content, 'minimatch')).toEqual(['9'])
+    })
+
+    it('returns empty array when module is not present in lockfile', () => {
+      const content = `
+lodash@^4.17.0:
+  version "4.17.21"
+`
+      expect(extractMajorVersions(content, 'minimatch')).toEqual([])
+    })
+
+    it('handles module names with special regex characters', () => {
+      const content = `
+"@scope/pkg@npm:^2.0.0":
+  version: 2.1.0
+`
+      expect(extractMajorVersions(content, '@scope/pkg')).toEqual(['2'])
+    })
+  })
+
+  describe('getInstalledMajorVersions()', () => {
+    afterEach(() => readFileMock.mockRejectedValue(new Error('ENOENT')))
+
+    it('returns parsed major versions from yarn.lock', async () => {
+      readFileMock.mockResolvedValue(`
+minimatch@^8.0.0:
+  version "8.0.4"
+
+minimatch@^9.0.0:
+  version "9.0.4"
+`)
+      expect(await getInstalledMajorVersions('minimatch')).toEqual(['8', '9'])
+    })
+
+    it('reads from workdir when provided', async () => {
+      readFileMock.mockResolvedValue(`
+minimatch@^9.0.0:
+  version "9.0.4"
+`)
+      await getInstalledMajorVersions('minimatch', '/custom/dir')
+      expect(readFileMock).toHaveBeenCalledWith('/custom/dir/yarn.lock', 'utf8')
+    })
+
+    it('reads from bare yarn.lock when workdir is empty', async () => {
+      readFileMock.mockResolvedValue('')
+      await getInstalledMajorVersions('minimatch')
+      expect(readFileMock).toHaveBeenCalledWith('yarn.lock', 'utf8')
+    })
+
+    it('returns empty array when yarn.lock cannot be read', async () => {
+      readFileMock.mockRejectedValue(new Error('ENOENT'))
+      expect(await getInstalledMajorVersions('minimatch')).toEqual([])
     })
   })
 
@@ -203,6 +330,52 @@ describe('upgrade.js', () => {
         ['checkout', 'package.json'],
         { cwd: workdir }
       )
+    })
+
+    it('runs yarn add once per installed major version when multiple exist', async () => {
+      readFileMock.mockResolvedValue(`
+minimatch@^8.0.0:
+  version "8.0.4"
+
+minimatch@^9.0.0:
+  version "9.0.1"
+`)
+      execFixture.getExecOutput
+        .mockResolvedValueOnce({
+          stdout: yarnInfoJson('9.0.1'),
+          stderr: '',
+          exitCode: 0
+        }) // getCurrentVersion (from)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add minimatch@^8
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add minimatch@^9
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({
+          stdout: 'yarn.lock\n',
+          stderr: '',
+          exitCode: 0
+        }) // git diff (changed)
+        .mockResolvedValueOnce({
+          stdout: yarnInfoJson('9.0.3'),
+          stderr: '',
+          exitCode: 0
+        }) // getCurrentVersion (to)
+
+      const result = await upgradeModule('minimatch')
+      expect(result).toEqual({
+        moduleName: 'minimatch',
+        status: 'upgraded',
+        fromVersion: '9.0.1',
+        toVersion: '9.0.3'
+      })
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
+        'add',
+        'minimatch@^8'
+      ])
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
+        'add',
+        'minimatch@^9'
+      ])
     })
   })
 })

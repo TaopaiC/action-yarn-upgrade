@@ -32,6 +32,8 @@ import require$$1$5 from 'node:dns';
 import require$$5$3 from 'string_decoder';
 import child from 'child_process';
 import require$$6$1 from 'timers';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -34492,6 +34494,66 @@ async function getCurrentVersion(moduleName, workdir = '') {
 }
 
 /**
+ * Parses yarn.lock content and returns unique major version numbers (as
+ * strings) for the given module.
+ *
+ * Supports both Yarn v1 classic (`version "X.Y.Z"`) and Yarn Berry
+ * (`version: X.Y.Z`) lockfile formats.
+ *
+ * @param {string} lockfileContent - Raw contents of yarn.lock.
+ * @param {string} moduleName - The npm module name to look up.
+ * @returns {string[]} Unique major version strings, e.g. `['8', '9']`.
+ */
+function extractMajorVersions(lockfileContent, moduleName) {
+  if (!lockfileContent) return []
+
+  const majors = new Set();
+  const lines = lockfileContent.split('\n');
+  const escapedName = moduleName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Matches top-level lockfile entry headers that reference this module.
+  // Yarn v1:     minimatch@^8.0.0:
+  // Yarn Berry:  "minimatch@npm:^8.0.0":
+  const entryRe = new RegExp(`(?:^|")${escapedName}@`);
+  let inSection = false;
+
+  for (const line of lines) {
+    // Top-level lines (not indented) delimit lockfile sections.
+    if (!line.startsWith(' ') && !line.startsWith('\t')) {
+      inSection = entryRe.test(line);
+    }
+    if (inSection) {
+      // Yarn v1:    `  version "8.0.4"`
+      // Yarn Berry: `  version: 8.0.4`
+      const m = line.match(/^\s+version[:\s]+"?(\d+)\./);
+      if (m) majors.add(m[1]);
+    }
+  }
+
+  return [...majors]
+}
+
+/**
+ * Reads `yarn.lock` from the working directory and returns the unique set of
+ * installed major versions for the given module.
+ *
+ * Returns an empty array when the lockfile cannot be read or contains no
+ * matching entries.
+ *
+ * @param {string} moduleName
+ * @param {string} [workdir=''] - Working directory containing yarn.lock.
+ * @returns {Promise<string[]>}
+ */
+async function getInstalledMajorVersions(moduleName, workdir = '') {
+  const lockfilePath = workdir ? join(workdir, 'yarn.lock') : 'yarn.lock';
+  try {
+    const content = await readFile(lockfilePath, 'utf8');
+    return extractMajorVersions(content, moduleName)
+  } catch {
+    return []
+  }
+}
+
+/**
  * Attempts to upgrade a single module to the latest compatible patch/minor
  * version (no major bumps) and detects whether yarn.lock actually changed.
  *
@@ -34510,16 +34572,26 @@ async function upgradeModule(moduleName, workdir = '') {
   let fromVersion = '';
   try {
     fromVersion = await getCurrentVersion(moduleName, workdir);
-    const majorVersion = fromVersion ? fromVersion.split('.')[0] : '';
-    const versionRange = majorVersion
-      ? `${moduleName}@^${majorVersion}`
-      : moduleName;
 
-    await execExports.getExecOutput(
-      'yarn',
-      ['add', versionRange],
-      ...(workdir ? [{ cwd: workdir }] : [])
-    );
+    // Discover all major versions currently present in yarn.lock so that each
+    // major range (e.g. ^8 and ^9) is upgraded independently within its own
+    // major boundary. Falls back to the current version's major (or a bare
+    // module name) when the lockfile cannot be read or has no matching entries.
+    const majorVersions = await getInstalledMajorVersions(moduleName, workdir);
+    const versionRanges =
+      majorVersions.length > 0
+        ? majorVersions.map((major) => `${moduleName}@^${major}`)
+        : fromVersion
+          ? [`${moduleName}@^${fromVersion.split('.')[0]}`]
+          : [moduleName];
+
+    for (const range of versionRanges) {
+      await execExports.getExecOutput(
+        'yarn',
+        ['add', range],
+        ...(workdir ? [{ cwd: workdir }] : [])
+      );
+    }
     await execExports.getExecOutput(
       'yarn',
       ['dedupe', moduleName],
