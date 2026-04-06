@@ -15,32 +15,47 @@ import { hasYarnLockChanged } from './git.js'
  */
 
 /**
- * Retrieves the currently installed version of an npm module via `yarn info`.
+ * Retrieves all currently installed versions of an npm module via
+ * `yarn info --recursive`.
+ *
+ * With `--recursive` the output is NDJSON (one JSON object per line), where
+ * each line represents one resolved instance of the module. All recognised
+ * version strings across every line are collected and returned.
  *
  * @param {string} moduleName
  * @param {string} [workdir=''] - Working directory for the yarn command.
- * @returns {Promise<string>} The version string (e.g. "4.17.20").
+ * @returns {Promise<string[]>} All installed version strings (e.g. `['8.0.4', '9.0.1']`).
  */
-export async function getCurrentVersion(moduleName, workdir = '') {
+export async function getCurrentVersions(moduleName, workdir = '') {
   const { stdout } = await getExecOutput(
     'yarn',
-    ['info', moduleName, '--json'],
+    ['info', moduleName, '--json', '--recursive'],
     { ignoreReturnCode: true, ...(workdir ? { cwd: workdir } : {}) }
   )
 
-  try {
-    const info = JSON.parse(stdout.trim())
-    // Yarn Berry: { data: { children: { Version: '...' } } }
-    // Yarn v1 / fallback: { version: '...' }
-    return (
-      info?.data?.children?.Version ??
-      info?.version ??
-      info?.data?.version ??
-      ''
-    )
-  } catch {
-    return ''
+  // Output is NDJSON when --recursive returns multiple results; collect the
+  // version string from every parseable line.
+  const versions = []
+  for (const line of stdout.trim().split('\n')) {
+    if (!line) continue
+    try {
+      const info = JSON.parse(line)
+      // Yarn Berry recursive: { children: { Version: '...' } }
+      // Yarn Berry standard:  { data: { children: { Version: '...' } } }
+      // Yarn v1 / fallback:   { version: '...' } or { data: { version: '...' } }
+      const version =
+        info?.data?.children?.Version ??
+        info?.children?.Version ??
+        info?.version ??
+        info?.data?.version ??
+        ''
+      if (version) versions.push(version)
+    } catch {
+      // skip unparsable lines
+    }
   }
+
+  return versions
 }
 
 /**
@@ -121,18 +136,21 @@ export async function getInstalledMajorVersions(moduleName, workdir = '') {
 export async function upgradeModule(moduleName, workdir = '') {
   let fromVersion = ''
   try {
-    fromVersion = await getCurrentVersion(moduleName, workdir)
+    const fromVersions = await getCurrentVersions(moduleName, workdir)
+    fromVersion = fromVersions.join(', ')
 
     // Discover all major versions currently present in yarn.lock so that each
     // major range (e.g. ^8 and ^9) is upgraded independently within its own
-    // major boundary. Falls back to the current version's major (or a bare
-    // module name) when the lockfile cannot be read or has no matching entries.
+    // major boundary. Falls back to the unique majors derived from the live
+    // installed versions, or a bare module name when none are available.
     const majorVersions = await getInstalledMajorVersions(moduleName, workdir)
     const versionRanges =
       majorVersions.length > 0
         ? majorVersions.map((major) => `${moduleName}@^${major}`)
-        : fromVersion
-          ? [`${moduleName}@^${fromVersion.split('.')[0]}`]
+        : fromVersions.length > 0
+          ? [...new Set(fromVersions.map((v) => v.split('.')[0]))].map(
+              (major) => `${moduleName}@^${major}`
+            )
           : [moduleName]
 
     for (const range of versionRanges) {
@@ -141,25 +159,31 @@ export async function upgradeModule(moduleName, workdir = '') {
         ['add', range],
         ...(workdir ? [{ cwd: workdir }] : [])
       )
+      await getExecOutput(
+        'yarn',
+        ['dedupe', moduleName],
+        ...(workdir ? [{ cwd: workdir }] : [])
+      )
+      // Restore package.json — we only want yarn.lock changes committed
+      await getExecOutput(
+        'git',
+        ['checkout', 'package.json'],
+        ...(workdir ? [{ cwd: workdir }] : [])
+      )
+      await getExecOutput(
+        'yarn',
+        undefined,
+        ...(workdir ? [{ cwd: workdir }] : [])
+      )
     }
-    await getExecOutput(
-      'yarn',
-      ['dedupe', moduleName],
-      ...(workdir ? [{ cwd: workdir }] : [])
-    )
-    // Restore package.json — we only want yarn.lock changes committed
-    await getExecOutput(
-      'git',
-      ['checkout', 'package.json'],
-      ...(workdir ? [{ cwd: workdir }] : [])
-    )
 
     const changed = await hasYarnLockChanged(workdir)
     if (!changed) {
       return { moduleName, status: 'unchanged' }
     }
 
-    const toVersion = await getCurrentVersion(moduleName, workdir)
+    const toVersions = await getCurrentVersions(moduleName, workdir)
+    const toVersion = toVersions.join(', ')
     return { moduleName, status: 'upgraded', fromVersion, toVersion }
   } catch (err) {
     // Restore package.json defensively even on error

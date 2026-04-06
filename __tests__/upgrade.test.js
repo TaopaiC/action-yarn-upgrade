@@ -7,7 +7,7 @@ const readFileMock = jest.fn().mockRejectedValue(new Error('ENOENT'))
 jest.unstable_mockModule('node:fs/promises', () => ({ readFile: readFileMock }))
 
 const {
-  getCurrentVersion,
+  getCurrentVersions,
   extractMajorVersions,
   getInstalledMajorVersions,
   upgradeModule
@@ -20,23 +20,23 @@ const yarnInfoJson = (version) =>
 describe('upgrade.js', () => {
   afterEach(() => jest.resetAllMocks())
 
-  describe('getCurrentVersion()', () => {
+  describe('getCurrentVersions()', () => {
     it('parses Yarn Berry info JSON', async () => {
       execFixture.getExecOutput.mockResolvedValue({
         stdout: yarnInfoJson('4.17.21'),
         stderr: '',
         exitCode: 0
       })
-      expect(await getCurrentVersion('lodash')).toBe('4.17.21')
+      expect(await getCurrentVersions('lodash')).toEqual(['4.17.21'])
     })
 
-    it('returns empty string on invalid JSON', async () => {
+    it('returns empty array on invalid JSON', async () => {
       execFixture.getExecOutput.mockResolvedValue({
         stdout: 'bad',
         stderr: '',
         exitCode: 1
       })
-      expect(await getCurrentVersion('lodash')).toBe('')
+      expect(await getCurrentVersions('lodash')).toEqual([])
     })
 
     it('falls back to info.version for yarn v1 format', async () => {
@@ -45,7 +45,7 @@ describe('upgrade.js', () => {
         stderr: '',
         exitCode: 0
       })
-      expect(await getCurrentVersion('some-pkg')).toBe('2.0.0')
+      expect(await getCurrentVersions('some-pkg')).toEqual(['2.0.0'])
     })
 
     it('falls back to info.data.version when children.Version is absent', async () => {
@@ -54,16 +54,50 @@ describe('upgrade.js', () => {
         stderr: '',
         exitCode: 0
       })
-      expect(await getCurrentVersion('some-pkg')).toBe('3.1.0')
+      expect(await getCurrentVersions('some-pkg')).toEqual(['3.1.0'])
     })
 
-    it('returns empty string when info has no recognized version field', async () => {
+    it('returns empty array when info has no recognized version field', async () => {
       execFixture.getExecOutput.mockResolvedValue({
         stdout: JSON.stringify({ name: 'some-pkg' }),
         stderr: '',
         exitCode: 0
       })
-      expect(await getCurrentVersion('some-pkg')).toBe('')
+      expect(await getCurrentVersions('some-pkg')).toEqual([])
+    })
+
+    it('parses Yarn Berry recursive format with children.Version (no data wrapper)', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ children: { Version: '5.0.1' } }),
+        stderr: '',
+        exitCode: 0
+      })
+      expect(await getCurrentVersions('some-pkg')).toEqual(['5.0.1'])
+    })
+
+    it('returns all versions from NDJSON output with multiple lines', async () => {
+      const lines = [
+        JSON.stringify({ children: { Version: '8.0.4' } }),
+        JSON.stringify({ children: { Version: '9.0.1' } })
+      ].join('\n')
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: lines,
+        stderr: '',
+        exitCode: 0
+      })
+      expect(await getCurrentVersions('minimatch')).toEqual(['8.0.4', '9.0.1'])
+    })
+
+    it('skips unparsable lines and returns version from valid line', async () => {
+      const lines = ['not-json', JSON.stringify({ version: '3.0.0' })].join(
+        '\n'
+      )
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: lines,
+        stderr: '',
+        exitCode: 0
+      })
+      expect(await getCurrentVersions('some-pkg')).toEqual(['3.0.0'])
     })
   })
 
@@ -188,7 +222,7 @@ minimatch@^9.0.0:
 
   describe('upgradeModule()', () => {
     it('returns upgraded when yarn.lock changed', async () => {
-      // Calls in order: yarn info (from), yarn add, yarn dedupe, git checkout, git diff, yarn info (to)
+      // Calls in order: yarn info (from), yarn add, yarn dedupe, git checkout, yarn install, git diff, yarn info (to)
       execFixture.getExecOutput
         .mockResolvedValueOnce({
           stdout: yarnInfoJson('4.17.20'),
@@ -198,6 +232,7 @@ minimatch@^9.0.0:
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
         .mockResolvedValueOnce({
           stdout: 'yarn.lock\n',
           stderr: '',
@@ -228,6 +263,7 @@ minimatch@^9.0.0:
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git diff (no change)
 
       const result = await upgradeModule('lodash')
@@ -270,6 +306,7 @@ minimatch@^9.0.0:
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add (no @^)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git diff (no change)
 
       const result = await upgradeModule('unknown-pkg')
@@ -306,13 +343,14 @@ minimatch@^9.0.0:
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git diff (no change)
 
       await upgradeModule('some-pkg', workdir)
 
       expect(execFixture.getExecOutput).toHaveBeenCalledWith(
         'yarn',
-        ['info', 'some-pkg', '--json'],
+        ['info', 'some-pkg', '--json', '--recursive'],
         { ignoreReturnCode: true, cwd: workdir }
       )
       expect(execFixture.getExecOutput).toHaveBeenCalledWith(
@@ -328,6 +366,11 @@ minimatch@^9.0.0:
       expect(execFixture.getExecOutput).toHaveBeenCalledWith(
         'git',
         ['checkout', 'package.json'],
+        { cwd: workdir }
+      )
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        undefined,
         { cwd: workdir }
       )
     })
@@ -347,9 +390,13 @@ minimatch@^9.0.0:
           exitCode: 0
         }) // getCurrentVersion (from)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add minimatch@^8
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe (1st loop)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json (1st loop)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install (1st loop)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add minimatch@^9
-        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
-        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe (2nd loop)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json (2nd loop)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install (2nd loop)
         .mockResolvedValueOnce({
           stdout: 'yarn.lock\n',
           stderr: '',
