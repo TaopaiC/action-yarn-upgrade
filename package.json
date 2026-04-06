@@ -1,20 +1,26 @@
 {
-  "name": "javascript-action",
-  "description": "GitHub Actions JavaScript Template",
+  "name": "@taopaic/action-yarn-upgrade",
+  "description": "GitHub Action to automatically upgrade npm/yarn packages to resolve CVE vulnerabilities and open a pull request with a structured upgrade report.",
   "version": "1.0.0",
-  "author": "",
+  "author": "TaopaiC",
   "type": "module",
   "private": true,
-  "homepage": "https://github.com/actions/javascript-action#readme",
+  "homepage": "https://github.com/TaopaiC/action-yarn-upgrade#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/javascript-action.git"
+    "url": "git+https://github.com/TaopaiC/action-yarn-upgrade.git"
   },
   "bugs": {
-    "url": "https://github.com/actions/javascript-action/issues"
+    "url": "https://github.com/TaopaiC/action-yarn-upgrade/issues"
   },
   "keywords": [
-    "actions"
+    "actions",
+    "npm",
+    "yarn",
+    "cve",
+    "security",
+    "upgrade",
+    "dependencies"
   ],
   "exports": {
     ".": "./dist/index.js"

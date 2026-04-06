@@ -1,9 +1,9 @@
 # Copilot Instructions
 
 This is a **GitHub Action** that automatically upgrades npm/yarn packages to
-resolve CVE vulnerabilities, commits the resulting `yarn.lock` changes, and
-produces a structured upgrade report. See [`docs/SPEC.md`](../docs/SPEC.md) for
-the full design specification.
+resolve CVE vulnerabilities, commits the resulting `yarn.lock` changes to a new
+branch, opens a pull request, and produces a structured upgrade report. See
+[`docs/SPEC.md`](../docs/SPEC.md) for the full design specification.
 
 The action is written in JavaScript and transpiled to a single file. Both the
 JavaScript sources and the **generated** JavaScript code are contained in this
@@ -20,6 +20,7 @@ code it is generated from.
 | -------------------- | -------------------------------------------------------- |
 | `__fixtures__/`      | Unit Test Fixtures                                       |
 | `__tests__/`         | Unit Tests                                               |
+| `test/`              | Integration Test Fixture Packages                        |
 | `.devcontainer/`     | Development Container Configuration                      |
 | `docs/`              | Design Specs and Documentation                           |
 | `.github/`           | GitHub Configuration                                     |
@@ -44,6 +45,8 @@ code it is generated from.
 | `package.json`       | NPM Package Configuration                                |
 | `README.md`          | Project Documentation                                    |
 | `rollup.config.js`   | Rollup Bundler Configuration                             |
+| `trivy.yaml`         | Trivy Security Scanner Configuration                     |
+| `CHANGELOG.md`       | Version Changelog                                        |
 
 ## Environment Setup
 
