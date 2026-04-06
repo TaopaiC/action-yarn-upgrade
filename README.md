@@ -12,22 +12,30 @@ opens a pull request with a structured upgrade report.
 1. If `module_list` is provided, those modules are upgraded immediately.
    Otherwise, the action runs `yarn npm audit --recursive --json` to discover
    vulnerable packages.
-2. Each module is upgraded in sequence:
+2. Each module is upgraded in sequence. All major versions present in
+   `yarn.lock` are detected first (e.g. both `^8` and `^9`), and each major
+   range is upgraded independently:
    - `yarn add <module>@^<major>` — upgrades within the same major version
    - `yarn dedupe <module>` — collapses duplicate resolutions
    - `git checkout package.json` — restores `package.json` so only `yarn.lock`
      changes are committed
-3. If `yarn.lock` changed for a module, it is staged.
+   - `yarn` — re-syncs `node_modules` with the restored `package.json`
+3. If `yarn.lock` changed for a module, it is staged and the change baseline
+   is reset so the next module's check starts fresh.
 4. All staged `yarn.lock` changes are committed in a single commit on a new
    timestamped branch (`chore/cve-upgrades-YYYYMMDD-HHmmss`), and a pull request
    is opened back to the original branch.
 
 ## Inputs
 
-| Input          | Required | Default | Description                                                                                                                                                      |
-| -------------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `module_list`  | No       | `''`    | Comma-separated list of npm module names to upgrade (e.g. `"lodash,axios"`). If omitted, `yarn npm audit` is used to discover vulnerable packages automatically. |
-| `github_token` | **Yes**  |         | GitHub token used to create the pull request. Typically `secrets.GITHUB_TOKEN`.                                                                                  |
+| Input          | Required | Default  | Description                                                                                                                                                      |
+| -------------- | -------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `module_list`  | No       | `''`     | Comma-separated list of npm module names to upgrade (e.g. `"lodash,axios"`). If omitted, `yarn npm audit` is used to discover vulnerable packages automatically. |
+| `github_token` | **Yes**  |          | GitHub token used to create the pull request. Typically `secrets.GITHUB_TOKEN`.                                                                                  |
+| `workdir`      | No       | `''`     | Working directory in which to run yarn and git commands. Defaults to the repository root.                                                                        |
+| `base_branch`  | No       | `''`     | Target branch for the pull request. Defaults to the branch the action is running on.                                                                             |
+| `pr_prefix`    | No       | `CHORE`  | Prefix used in the pull request title (e.g. `CHORE`, `fix`, `deps`).                                                                                            |
+| `labels`       | No       | `''`     | Comma-separated list of labels to apply to the pull request (e.g. `"dependencies,security"`).                                                                    |
 
 ## Outputs
 
@@ -95,11 +103,18 @@ chore: bump node modules for CVE fixes
 
 Upgraded:
 - lodash: 4.17.20 → 4.17.21 (may resolve CVE-2021-23337)
-- axios: 0.21.1 → 0.21.4 (may resolve CVE-2021-3749)
+- axios: 0.21.1 → 0.21.4 (may resolve GHSA-xxxx-xxxx-xxxx)
 
 Not upgraded (no change in yarn.lock):
 - express
+
+Failed (skipped):
+- some-module: error message
 ```
+
+> **Note:** When vulnerabilities are detected via `yarn npm audit` (Yarn Berry
+> NDJSON format), advisory identifiers are GHSA IDs extracted from the advisory
+> URL rather than traditional CVE numbers.
 
 ## Development
 
