@@ -27,6 +27,17 @@ inputs:
       running on when left empty.
     required: false
     default: ''
+  pr_prefix:
+    description: >
+      Prefix used in the pull request title (e.g. "CHORE", "fix", "deps").
+    required: false
+    default: 'CHORE'
+  labels:
+    description: >
+      Comma-separated list of labels to apply to the pull request (e.g.
+      "dependencies,security"). Leave empty to add no labels.
+    required: false
+    default: ''
   github_token:
     description: >
       GitHub token used to create the pull request. Typically

@@ -290,4 +290,108 @@ describe('main.js', () => {
       expect.objectContaining({ base: 'main' })
     )
   })
+
+  it('uses pr_prefix input in PR title and includes upgraded module names', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      if (name === 'pr_prefix') return 'SECURITY'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'upgraded',
+      fromVersion: '4.17.20',
+      toVersion: '4.17.21'
+    })
+    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(githubMock.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'SECURITY: bump 1 module(s) (lodash) for CVE fixes'
+      })
+    )
+  })
+
+  it('defaults PR title prefix to CHORE when pr_prefix input is empty', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'axios'
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'axios',
+      status: 'upgraded',
+      fromVersion: '1.0.0',
+      toVersion: '1.1.0'
+    })
+    reportMock.buildCommitMessage.mockReturnValue('chore: bump axios')
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(githubMock.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'CHORE: bump 1 module(s) (axios) for CVE fixes'
+      })
+    )
+  })
+
+  it('passes parsed labels array to createPullRequest', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      if (name === 'labels') return 'security, dependencies'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'upgraded',
+      fromVersion: '4.17.20',
+      toVersion: '4.17.21'
+    })
+    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(githubMock.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        labels: ['security', 'dependencies']
+      })
+    )
+  })
+
+  it('passes empty labels array when labels input is empty', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'module_list') return 'lodash'
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+    upgradeMock.upgradeModule.mockResolvedValue({
+      moduleName: 'lodash',
+      status: 'upgraded',
+      fromVersion: '4.17.20',
+      toVersion: '4.17.21'
+    })
+    reportMock.buildCommitMessage.mockReturnValue('chore: bump lodash')
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 1 module(s): 1 upgraded, 0 unchanged, 0 failed.'
+    )
+
+    await run()
+
+    expect(githubMock.createPullRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ labels: [] })
+    )
+  })
 })
