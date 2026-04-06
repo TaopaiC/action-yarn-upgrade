@@ -3,6 +3,9 @@ import { getExecOutput } from '@actions/exec'
 /**
  * Returns the name of the current git branch.
  *
+ * Falls back to the `GITHUB_REF_NAME` environment variable when git reports a
+ * detached HEAD (e.g. in GitHub Actions `pull_request` event checkouts).
+ *
  * @param {string} [workdir=''] - Working directory for the git command.
  * @returns {Promise<string>} The current branch name.
  */
@@ -12,7 +15,10 @@ export async function getCurrentBranch(workdir = '') {
     ['rev-parse', '--abbrev-ref', 'HEAD'],
     ...(workdir ? [{ cwd: workdir }] : [])
   )
-  return stdout.trim()
+  const branch = stdout.trim()
+  // In detached HEAD state (e.g. pull_request event), fall back to the env var
+  // set by GitHub Actions which always contains the triggering branch name.
+  return branch === 'HEAD' ? (process.env.GITHUB_REF_NAME ?? branch) : branch
 }
 
 /**
