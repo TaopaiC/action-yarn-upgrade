@@ -1,4 +1,4 @@
-import { buildCommitMessage, buildSummary } from '../src/report.js'
+import { buildTitle, buildCommitMessage, buildSummary } from '../src/report.js'
 
 describe('report.js', () => {
   describe('buildCommitMessage()', () => {
@@ -7,7 +7,7 @@ describe('report.js', () => {
         { moduleName: 'lodash', status: 'unchanged' },
         { moduleName: 'axios', status: 'unchanged' }
       ]
-      expect(buildCommitMessage(results, new Map())).toBeNull()
+      expect(buildCommitMessage(results, new Map(), 'CHORE')).toBeNull()
     })
 
     it('generates correct message for a single upgrade without CVEs', () => {
@@ -19,10 +19,23 @@ describe('report.js', () => {
           toVersion: '4.17.21'
         }
       ]
-      const msg = buildCommitMessage(results, new Map())
-      expect(msg).toContain('chore: bump node modules for CVE fixes')
+      const msg = buildCommitMessage(results, new Map(), 'CHORE')
+      expect(msg).toContain('CHORE: bump 1 module(s) (lodash) for CVE fixes')
       expect(msg).toContain('lodash: 4.17.20 → 4.17.21')
       expect(msg).not.toContain('may resolve')
+    })
+
+    it('uses the prPrefix in the commit message title', () => {
+      const results = [
+        {
+          moduleName: 'lodash',
+          status: 'upgraded',
+          fromVersion: '4.17.20',
+          toVersion: '4.17.21'
+        }
+      ]
+      const msg = buildCommitMessage(results, new Map(), 'SECURITY')
+      expect(msg).toContain('SECURITY: bump 1 module(s) (lodash) for CVE fixes')
     })
 
     it('includes CVE information from the audit map', () => {
@@ -35,7 +48,7 @@ describe('report.js', () => {
         }
       ]
       const auditMap = new Map([['lodash', ['CVE-2021-23337']]])
-      const msg = buildCommitMessage(results, auditMap)
+      const msg = buildCommitMessage(results, auditMap, 'CHORE')
       expect(msg).toContain('may resolve CVE-2021-23337')
     })
 
@@ -49,7 +62,7 @@ describe('report.js', () => {
         },
         { moduleName: 'express', status: 'unchanged' }
       ]
-      const msg = buildCommitMessage(results, new Map())
+      const msg = buildCommitMessage(results, new Map(), 'CHORE')
       expect(msg).toContain('Not upgraded (no change in yarn.lock):')
       expect(msg).toContain('- express')
     })
@@ -64,7 +77,7 @@ describe('report.js', () => {
         },
         { moduleName: 'broken', status: 'error', error: 'install failed' }
       ]
-      const msg = buildCommitMessage(results, new Map())
+      const msg = buildCommitMessage(results, new Map(), 'CHORE')
       expect(msg).toContain('Failed (skipped):')
       expect(msg).toContain('- broken: install failed')
     })
@@ -89,11 +102,70 @@ describe('report.js', () => {
         ['lodash', ['CVE-2021-23337']],
         ['axios', ['CVE-2021-3749']]
       ])
-      const msg = buildCommitMessage(results, auditMap)
+      const msg = buildCommitMessage(results, auditMap, 'CHORE')
+      expect(msg).toContain(
+        'CHORE: bump 2 module(s) (lodash, axios) for CVE fixes'
+      )
       expect(msg).toContain('lodash: 4.17.20 → 4.17.21')
       expect(msg).toContain('axios: 0.21.1 → 0.21.4')
       expect(msg).toContain('CVE-2021-23337')
       expect(msg).toContain('CVE-2021-3749')
+    })
+  })
+
+  describe('buildTitle()', () => {
+    it('returns null when no modules were upgraded', () => {
+      const results = [{ moduleName: 'lodash', status: 'unchanged' }]
+      expect(buildTitle(results, 'CHORE')).toBeNull()
+    })
+
+    it('generates title with count and module names', () => {
+      const results = [
+        {
+          moduleName: 'lodash',
+          status: 'upgraded',
+          fromVersion: '4.17.20',
+          toVersion: '4.17.21'
+        }
+      ]
+      expect(buildTitle(results, 'CHORE')).toBe(
+        'CHORE: bump 1 module(s) (lodash) for CVE fixes'
+      )
+    })
+
+    it('uses the provided prPrefix', () => {
+      const results = [
+        {
+          moduleName: 'lodash',
+          status: 'upgraded',
+          fromVersion: '4.17.20',
+          toVersion: '4.17.21'
+        }
+      ]
+      expect(buildTitle(results, 'SECURITY')).toBe(
+        'SECURITY: bump 1 module(s) (lodash) for CVE fixes'
+      )
+    })
+
+    it('includes all upgraded module names when multiple modules upgraded', () => {
+      const results = [
+        {
+          moduleName: 'brace-expansion',
+          status: 'upgraded',
+          fromVersion: '1.1.10',
+          toVersion: '1.1.11'
+        },
+        {
+          moduleName: 'minimatch',
+          status: 'upgraded',
+          fromVersion: '3.1.1',
+          toVersion: '3.1.2'
+        },
+        { moduleName: 'express', status: 'unchanged' }
+      ]
+      expect(buildTitle(results, 'CHORE')).toBe(
+        'CHORE: bump 2 module(s) (brace-expansion, minimatch) for CVE fixes'
+      )
     })
   })
 

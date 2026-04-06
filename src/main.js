@@ -8,7 +8,7 @@ import {
   pushBranch
 } from './git.js'
 import { createPullRequest } from './github.js'
-import { buildCommitMessage, buildSummary } from './report.js'
+import { buildCommitMessage, buildTitle, buildSummary } from './report.js'
 import { upgradeModule } from './upgrade.js'
 
 /**
@@ -102,7 +102,7 @@ export async function run() {
       results.push(result)
     }
 
-    const commitMessage = buildCommitMessage(results, auditMap)
+    const commitMessage = buildCommitMessage(results, auditMap, prPrefix)
     const summary = buildSummary(results)
     let prUrl = ''
 
@@ -113,9 +113,7 @@ export async function run() {
       await pushBranch(prBranch, workdir)
 
       core.info('Opening pull request...')
-      const upgraded = results.filter((r) => r.status === 'upgraded')
-      const moduleNames = upgraded.map((r) => r.moduleName).join(', ')
-      const prTitle = `${prPrefix}: bump ${upgraded.length} module(s) (${moduleNames}) for CVE fixes`
+      const prTitle = buildTitle(results, prPrefix)
       const labels = labelsInput
         ? labelsInput
             .split(',')

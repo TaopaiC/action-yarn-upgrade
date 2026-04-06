@@ -34389,6 +34389,22 @@ async function createPullRequest({
  */
 
 /**
+ * Builds the title used for both the git commit and the pull request.
+ *
+ * Returns `null` when no modules were actually upgraded.
+ *
+ * @param {UpgradeResult[]} results - Array of upgrade outcomes.
+ * @param {string} prPrefix - The prefix for the title (e.g., 'CHORE', 'SECURITY').
+ * @returns {string | null}
+ */
+function buildTitle(results, prPrefix) {
+  const upgraded = results.filter((r) => r.status === 'upgraded');
+  if (upgraded.length === 0) return null
+  const moduleNames = upgraded.map((r) => r.moduleName).join(', ');
+  return `${prPrefix}: bump ${upgraded.length} module(s) (${moduleNames}) for CVE fixes`
+}
+
+/**
  * Builds the git commit message (and PR body) summarising the upgrade run.
  *
  * Returns `null` when no modules were actually upgraded, so the caller can
@@ -34398,16 +34414,17 @@ async function createPullRequest({
  * @param {Map<string, string[]>} auditMap
  *   Maps module name → CVE IDs discovered by audit. Pass an empty Map when
  *   modules were specified manually.
+ * @param {string} prPrefix - The prefix used in the commit/PR title.
  * @returns {string | null}
  */
-function buildCommitMessage(results, auditMap) {
+function buildCommitMessage(results, auditMap, prPrefix) {
   const upgraded = results.filter((r) => r.status === 'upgraded');
   const unchanged = results.filter((r) => r.status === 'unchanged');
   const errored = results.filter((r) => r.status === 'error');
 
   if (upgraded.length === 0) return null
 
-  const lines = ['chore: bump node modules for CVE fixes', ''];
+  const lines = [buildTitle(results, prPrefix), ''];
 
   lines.push('Upgraded:');
   for (const r of upgraded) {
@@ -34750,7 +34767,7 @@ async function run() {
       results.push(result);
     }
 
-    const commitMessage = buildCommitMessage(results, auditMap);
+    const commitMessage = buildCommitMessage(results, auditMap, prPrefix);
     const summary = buildSummary(results);
     let prUrl = '';
 
@@ -34761,9 +34778,7 @@ async function run() {
       await pushBranch(prBranch, workdir);
 
       info('Opening pull request...');
-      const upgraded = results.filter((r) => r.status === 'upgraded');
-      const moduleNames = upgraded.map((r) => r.moduleName).join(', ');
-      const prTitle = `${prPrefix}: bump ${upgraded.length} module(s) (${moduleNames}) for CVE fixes`;
+      const prTitle = buildTitle(results, prPrefix);
       const labels = labelsInput
         ? labelsInput
             .split(',')
