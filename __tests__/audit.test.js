@@ -271,5 +271,47 @@ describe('audit.js', () => {
         { ignoreReturnCode: true }
       )
     })
+
+    it('passes --severity flag when severity is specified', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ advisories: {} }),
+        stderr: '',
+        exitCode: 0
+      })
+      await runAudit('', 'high')
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['npm', 'audit', '--recursive', '--json', '--severity', 'high'],
+        { ignoreReturnCode: true }
+      )
+    })
+
+    it('passes both cwd and --severity when both are specified', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ advisories: {} }),
+        stderr: '',
+        exitCode: 0
+      })
+      await runAudit('/custom/dir', 'critical')
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['npm', 'audit', '--recursive', '--json', '--severity', 'critical'],
+        { ignoreReturnCode: true, cwd: '/custom/dir' }
+      )
+    })
+
+    it('does not pass --severity when severity is empty string', async () => {
+      execFixture.getExecOutput.mockResolvedValue({
+        stdout: JSON.stringify({ advisories: {} }),
+        stderr: '',
+        exitCode: 0
+      })
+      await runAudit('', '')
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['npm', 'audit', '--recursive', '--json'],
+        { ignoreReturnCode: true }
+      )
+    })
   })
 })

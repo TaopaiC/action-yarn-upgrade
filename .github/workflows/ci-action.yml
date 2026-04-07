@@ -36,6 +36,7 @@ jobs:
           labels: 'action_test'
           npmMinimalAgeGate: '1d'
           pr_prefix: 'TEST: DEPS'
+          severity: 'low'
 
       - name: Print Output
         id: output

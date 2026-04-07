@@ -14,18 +14,20 @@ import { getExecOutput } from '@actions/exec'
  * exits with a non-zero code unrelated to vulnerabilities.
  *
  * @param {string} [workdir=''] - Working directory for the yarn command.
+ * @param {string} [severity=''] - Minimum severity level (info|low|moderate|high|critical). When set, passes `--severity` to yarn.
  * @returns {Promise<AuditEntry[]>}
  */
-export async function runAudit(workdir = '') {
+export async function runAudit(workdir = '', severity = '') {
   let stdout = ''
   try {
     // `yarn npm audit` exits with code 1 when vulnerabilities are found —
     // we capture the output regardless and parse it manually.
-    const result = await getExecOutput(
-      'yarn',
-      ['npm', 'audit', '--recursive', '--json'],
-      { ignoreReturnCode: true, ...(workdir ? { cwd: workdir } : {}) }
-    )
+    const args = ['npm', 'audit', '--recursive', '--json']
+    if (severity) args.push('--severity', severity)
+    const result = await getExecOutput('yarn', args, {
+      ignoreReturnCode: true,
+      ...(workdir ? { cwd: workdir } : {})
+    })
     stdout = result.stdout
   } catch {
     return []

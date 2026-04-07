@@ -46,6 +46,14 @@ inputs:
       Yarn v1. Leave empty to skip setting this value.
     required: false
     default: ''
+  severity:
+    description: >
+      Minimum severity level to include in the audit. When set, limits the audit
+      to vulnerabilities of the corresponding severity and above. Valid values
+      are `info`, `low`, `moderate`, `high`, `critical`. Leave empty to report
+      all severities.
+    required: false
+    default: ''
   github_token:
     description: >
       GitHub token used to create the pull request. Typically
