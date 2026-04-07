@@ -34539,7 +34539,10 @@ async function getCurrentVersions(moduleName, workdir = '') {
  *
  * @param {string} lockfileContent - Raw contents of yarn.lock.
  * @param {string} moduleName - The npm module name to look up.
- * @returns {string[]} Unique major version strings, e.g. `['8', '9']`.
+ * @returns {string[]} Unique version key strings. For non-zero majors this is
+ *   just the major (e.g. `['8', '9']`); for zero-major packages it includes
+ *   the minor so the `^` range stays within the same minor line
+ *   (e.g. `['0.8', '0.9']`).
  */
 function extractMajorVersions(lockfileContent, moduleName) {
   if (!lockfileContent) return []
@@ -34561,8 +34564,13 @@ function extractMajorVersions(lockfileContent, moduleName) {
     if (inSection) {
       // Yarn v1:    `  version "8.0.4"`
       // Yarn Berry: `  version: 8.0.4`
-      const m = line.match(/^\s+version[:\s]+"?(\d+)\./);
-      if (m) majors.add(m[1]);
+      const m = line.match(/^\s+version[:\s]+"?(\d+)\.(\d+)\./);
+      if (m) {
+        // For zero-major packages (0.x.y) the minor is the effective breaking
+        // version, so we pin the range to major.minor (e.g. "0.8") rather than
+        // just major ("0") to avoid crossing minor boundaries.
+        majors.add(m[1] === '0' ? `${m[1]}.${m[2]}` : m[1]);
+      }
     }
   }
 
@@ -34620,9 +34628,14 @@ async function upgradeModule(moduleName, workdir = '') {
       majorVersions.length > 0
         ? majorVersions.map((major) => `${moduleName}@^${major}`)
         : fromVersions.length > 0
-          ? [...new Set(fromVersions.map((v) => v.split('.')[0]))].map(
-              (major) => `${moduleName}@^${major}`
-            )
+          ? [
+              ...new Set(
+                fromVersions.map((v) => {
+                  const parts = v.split('.');
+                  return parts[0] === '0' ? `${parts[0]}.${parts[1]}` : parts[0]
+                })
+              )
+            ].map((version) => `${moduleName}@^${version}`)
           : [moduleName];
 
     for (const range of versionRanges) {
