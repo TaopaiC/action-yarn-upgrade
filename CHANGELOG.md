@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.3](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.2...v1.0.3) (2026-04-07)
+
+
+### Features
+
+* add npmMinimalAgeGate input ([#118](https://github.com/TaopaiC/action-yarn-upgrade/issues/118)) ([5ca530e](https://github.com/TaopaiC/action-yarn-upgrade/commit/5ca530eef3b857754ca582f4b1a56f5f5ca72bf9))
+* add severity input to filter yarn npm audit ([#123](https://github.com/TaopaiC/action-yarn-upgrade/issues/123)) ([b0c5474](https://github.com/TaopaiC/action-yarn-upgrade/commit/b0c5474517226302f2cc68b1dfdfef329b548899))
+
+
+### Bug Fixes
+
+* skip yarn berry audit entries flagged as deprecation ([#121](https://github.com/TaopaiC/action-yarn-upgrade/issues/121)) ([e32c12d](https://github.com/TaopaiC/action-yarn-upgrade/commit/e32c12d9e21c6bcc5669d230c5e3dc363f487abc))
+
 ## [1.0.2](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.1...v1.0.2) (2026-04-06)
 
 
