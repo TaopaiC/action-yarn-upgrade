@@ -29409,18 +29409,20 @@ var execExports = requireExec();
  * exits with a non-zero code unrelated to vulnerabilities.
  *
  * @param {string} [workdir=''] - Working directory for the yarn command.
+ * @param {string} [severity=''] - Minimum severity level (info|low|moderate|high|critical). When set, passes `--severity` to yarn.
  * @returns {Promise<AuditEntry[]>}
  */
-async function runAudit(workdir = '') {
+async function runAudit(workdir = '', severity = '') {
   let stdout = '';
   try {
     // `yarn npm audit` exits with code 1 when vulnerabilities are found —
     // we capture the output regardless and parse it manually.
-    const result = await execExports.getExecOutput(
-      'yarn',
-      ['npm', 'audit', '--recursive', '--json'],
-      { ignoreReturnCode: true, ...(workdir ? { cwd: workdir } : {}) }
-    );
+    const args = ['npm', 'audit', '--recursive', '--json'];
+    if (severity) args.push('--severity', severity);
+    const result = await execExports.getExecOutput('yarn', args, {
+      ignoreReturnCode: true,
+      ...(workdir ? { cwd: workdir } : {})
+    });
     stdout = result.stdout;
   } catch {
     return []
@@ -34682,6 +34684,9 @@ async function upgradeModule(moduleName, workdir = '') {
 /** @type {RegExp} Matches a plain number or number with ms/s/m/h/d/w suffix. */
 const NPM_MINIMAL_AGE_GATE_RE = /^(\d*\.?\d+)(ms|s|m|h|d|w)?$/;
 
+/** Valid values for the severity input. */
+const VALID_SEVERITIES = ['info', 'low', 'moderate', 'high', 'critical'];
+
 /**
  * Validates that the npmMinimalAgeGate value is a number optionally followed
  * by a time unit suffix (ms, s, m, h, d, w).
@@ -34779,6 +34784,14 @@ async function run() {
     const prPrefix = getInput('pr_prefix') || 'CHORE';
     const labelsInput = getInput('labels');
     const npmMinimalAgeGate = getInput('npmMinimalAgeGate');
+    const severity = getInput('severity');
+
+    if (severity && !VALID_SEVERITIES.includes(severity)) {
+      setFailed(
+        `Invalid severity value: "${severity}". Valid values are: ${VALID_SEVERITIES.join(', ')}.`
+      );
+      return
+    }
 
     if (npmMinimalAgeGate) {
       if (!isValidNpmMinimalAgeGate(npmMinimalAgeGate)) {
@@ -34820,7 +34833,7 @@ async function run() {
       info(
         'No module_list provided — running yarn audit to detect vulnerable packages...'
       );
-      const auditEntries = await runAudit(workdir);
+      const auditEntries = await runAudit(workdir, severity);
       modules = auditEntries.map((e) => e.moduleName);
       auditMap = new Map(auditEntries.map((e) => [e.moduleName, e.cves]));
       info(

@@ -17,6 +17,9 @@ import { upgradeModule } from './upgrade.js'
 /** @type {RegExp} Matches a plain number or number with ms/s/m/h/d/w suffix. */
 const NPM_MINIMAL_AGE_GATE_RE = /^(\d*\.?\d+)(ms|s|m|h|d|w)?$/
 
+/** Valid values for the severity input. */
+const VALID_SEVERITIES = ['info', 'low', 'moderate', 'high', 'critical']
+
 /**
  * Validates that the npmMinimalAgeGate value is a number optionally followed
  * by a time unit suffix (ms, s, m, h, d, w).
@@ -114,6 +117,14 @@ export async function run() {
     const prPrefix = core.getInput('pr_prefix') || 'CHORE'
     const labelsInput = core.getInput('labels')
     const npmMinimalAgeGate = core.getInput('npmMinimalAgeGate')
+    const severity = core.getInput('severity')
+
+    if (severity && !VALID_SEVERITIES.includes(severity)) {
+      core.setFailed(
+        `Invalid severity value: "${severity}". Valid values are: ${VALID_SEVERITIES.join(', ')}.`
+      )
+      return
+    }
 
     if (npmMinimalAgeGate) {
       if (!isValidNpmMinimalAgeGate(npmMinimalAgeGate)) {
@@ -155,7 +166,7 @@ export async function run() {
       core.info(
         'No module_list provided — running yarn audit to detect vulnerable packages...'
       )
-      const auditEntries = await runAudit(workdir)
+      const auditEntries = await runAudit(workdir, severity)
       modules = auditEntries.map((e) => e.moduleName)
       auditMap = new Map(auditEntries.map((e) => [e.moduleName, e.cves]))
       core.info(

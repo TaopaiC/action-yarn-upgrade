@@ -558,6 +558,52 @@ describe('main.js', () => {
       )
     })
   })
+
+  describe('severity input', () => {
+    it('calls setFailed when severity is an invalid value', async () => {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'github_token') return 'test-token'
+        if (name === 'severity') return 'extreme'
+        return ''
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        expect.stringContaining('Invalid severity value')
+      )
+      expect(auditMock.runAudit).not.toHaveBeenCalled()
+    })
+
+    it.each(['info', 'low', 'moderate', 'high', 'critical'])(
+      'accepts valid severity value "%s" and passes it to runAudit',
+      async (severityValue) => {
+        core.getInput.mockImplementation((name) => {
+          if (name === 'github_token') return 'test-token'
+          if (name === 'severity') return severityValue
+          return ''
+        })
+        auditMock.runAudit.mockResolvedValue([])
+
+        await run()
+
+        expect(core.setFailed).not.toHaveBeenCalled()
+        expect(auditMock.runAudit).toHaveBeenCalledWith('', severityValue)
+      }
+    )
+
+    it('passes empty severity to runAudit when severity input is not set', async () => {
+      core.getInput.mockImplementation((name) => {
+        if (name === 'github_token') return 'test-token'
+        return ''
+      })
+      auditMock.runAudit.mockResolvedValue([])
+
+      await run()
+
+      expect(auditMock.runAudit).toHaveBeenCalledWith('', '')
+    })
+  })
 })
 
 describe('validateWorkdir', () => {
