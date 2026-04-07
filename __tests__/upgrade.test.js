@@ -183,6 +183,57 @@ lodash@^4.17.0:
 `
       expect(extractMajorVersions(content, '@scope/pkg')).toEqual(['2'])
     })
+
+    it('returns major.minor for zero-major versions in Yarn v1 lockfile', () => {
+      const content = `
+semver@^0.5.0:
+  version "0.5.3"
+  resolved "https://registry.npmjs.org/..."
+`
+      expect(extractMajorVersions(content, 'semver')).toEqual(['0.5'])
+    })
+
+    it('returns major.minor for zero-major versions in Yarn Berry lockfile', () => {
+      const content = `
+"semver@npm:^0.8.0":
+  version: 0.8.1
+  resolution: "semver@npm:0.8.1"
+`
+      expect(extractMajorVersions(content, 'semver')).toEqual(['0.8'])
+    })
+
+    it('deduplicates zero-major entries with the same minor', () => {
+      const content = `
+semver@^0.8.0:
+  version "0.8.0"
+
+semver@^0.8.1:
+  version "0.8.3"
+`
+      expect(extractMajorVersions(content, 'semver')).toEqual(['0.8'])
+    })
+
+    it('returns distinct major.minor keys for multiple zero-major minors', () => {
+      const content = `
+semver@^0.7.0:
+  version "0.7.3"
+
+semver@^0.8.0:
+  version "0.8.1"
+`
+      expect(extractMajorVersions(content, 'semver')).toEqual(['0.7', '0.8'])
+    })
+
+    it('mixes zero-major and non-zero-major versions correctly', () => {
+      const content = `
+some-pkg@^0.9.0:
+  version "0.9.2"
+
+some-pkg@^2.0.0:
+  version "2.1.0"
+`
+      expect(extractMajorVersions(content, 'some-pkg')).toEqual(['0.9', '2'])
+    })
   })
 
   describe('getInstalledMajorVersions()', () => {
@@ -424,6 +475,69 @@ minimatch@^9.0.0:
       expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
         'add',
         'minimatch@^9'
+      ])
+    })
+
+    it('uses major.minor range for zero-major packages from lockfile', async () => {
+      readFileMock.mockResolvedValue(`
+semver@^0.8.0:
+  version "0.8.1"
+`)
+      execFixture.getExecOutput
+        .mockResolvedValueOnce({
+          stdout: yarnInfoJson('0.8.1'),
+          stderr: '',
+          exitCode: 0
+        }) // getCurrentVersion (from)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add semver@^0.8
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
+        .mockResolvedValueOnce({
+          stdout: 'yarn.lock\n',
+          stderr: '',
+          exitCode: 0
+        }) // git diff (changed)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git add yarn.lock
+        .mockResolvedValueOnce({
+          stdout: yarnInfoJson('0.8.4'),
+          stderr: '',
+          exitCode: 0
+        }) // getCurrentVersion (to)
+
+      const result = await upgradeModule('semver')
+      expect(result).toEqual({
+        moduleName: 'semver',
+        status: 'upgraded',
+        fromVersion: '0.8.1',
+        toVersion: '0.8.4'
+      })
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
+        'add',
+        'semver@^0.8'
+      ])
+    })
+
+    it('uses major.minor range for zero-major packages from getCurrentVersions fallback', async () => {
+      // yarn.lock cannot be read → falls back to fromVersions
+      readFileMock.mockRejectedValue(new Error('ENOENT'))
+      execFixture.getExecOutput
+        .mockResolvedValueOnce({
+          stdout: yarnInfoJson('0.9.2'),
+          stderr: '',
+          exitCode: 0
+        }) // getCurrentVersion (from)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add zero-pkg@^0.9
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git diff (no change)
+
+      const result = await upgradeModule('zero-pkg')
+      expect(result).toEqual({ moduleName: 'zero-pkg', status: 'unchanged' })
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
+        'add',
+        'zero-pkg@^0.9'
       ])
     })
   })
