@@ -9,10 +9,12 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import * as core from '../__fixtures__/core.js'
+import * as execFixture from '../__fixtures__/exec.js'
 import * as githubFixture from '../__fixtures__/github.js'
 
 // --- module mocks (must be declared before dynamic import) ---
 jest.unstable_mockModule('@actions/core', () => core)
+jest.unstable_mockModule('@actions/exec', () => execFixture)
 jest.unstable_mockModule('@actions/github', () => githubFixture)
 
 const auditMock = { runAudit: jest.fn() }
@@ -37,7 +39,8 @@ jest.unstable_mockModule('../src/github.js', () => githubMock)
 jest.unstable_mockModule('../src/upgrade.js', () => upgradeMock)
 jest.unstable_mockModule('../src/report.js', () => reportMock)
 
-const { run, validateWorkdir } = await import('../src/main.js')
+const { run, validateWorkdir, isValidNpmMinimalAgeGate } =
+  await import('../src/main.js')
 
 describe('main.js', () => {
   beforeEach(() => {
@@ -45,6 +48,11 @@ describe('main.js', () => {
       if (name === 'module_list') return ''
       if (name === 'github_token') return 'test-token'
       return ''
+    })
+    execFixture.getExecOutput.mockResolvedValue({
+      stdout: '',
+      stderr: '',
+      exitCode: 0
     })
     gitMock.getCurrentBranch.mockResolvedValue('main')
     gitMock.createBranch.mockResolvedValue()
@@ -633,5 +641,130 @@ describe('validateWorkdir', () => {
       fs.rmSync(tmpOutside, { recursive: true })
       fs.rmSync(tmpWorkspace, { recursive: true })
     }
+  })
+})
+
+describe('isValidNpmMinimalAgeGate', () => {
+  it.each([
+    ['72', true],
+    ['3.5', true],
+    ['.5', true],
+    ['0', true],
+    ['100ms', true],
+    ['30s', true],
+    ['5m', true],
+    ['24h', true],
+    ['7d', true],
+    ['2w', true],
+    ['1.5h', true],
+    ['.5d', true]
+  ])('accepts valid value %s', (value, expected) => {
+    expect(isValidNpmMinimalAgeGate(value)).toBe(expected)
+  })
+
+  it.each([
+    [''],
+    ['abc'],
+    ['72x'],
+    ['h'],
+    ['1 h'],
+    ['1h2d'],
+    ['--flag'],
+    ['1; rm -rf /']
+  ])('rejects invalid value %s', (value) => {
+    expect(isValidNpmMinimalAgeGate(value)).toBe(false)
+  })
+})
+
+describe('run() with npmMinimalAgeGate input', () => {
+  beforeEach(() => {
+    execFixture.getExecOutput.mockResolvedValue({
+      stdout: '',
+      stderr: '',
+      exitCode: 0
+    })
+    gitMock.getCurrentBranch.mockResolvedValue('main')
+    gitMock.createBranch.mockResolvedValue()
+    gitMock.stageYarnLock.mockResolvedValue()
+    gitMock.commitChanges.mockResolvedValue()
+    gitMock.pushBranch.mockResolvedValue()
+    auditMock.runAudit.mockResolvedValue([])
+    reportMock.buildCommitMessage.mockReturnValue(null)
+    reportMock.buildSummary.mockReturnValue(
+      'Processed 0 module(s): 0 upgraded, 0 unchanged, 0 failed.'
+    )
+  })
+
+  afterEach(() => jest.resetAllMocks())
+
+  it('skips yarn config set when npmMinimalAgeGate is empty', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'github_token') return 'test-token'
+      return ''
+    })
+
+    await run()
+
+    expect(execFixture.getExecOutput).not.toHaveBeenCalledWith(
+      'yarn',
+      expect.arrayContaining(['config', 'set', 'npmMinimalAgeGate']),
+      expect.anything()
+    )
+  })
+
+  it('runs yarn config set with the provided value before upgrading', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'github_token') return 'test-token'
+      if (name === 'npmMinimalAgeGate') return '72h'
+      return ''
+    })
+
+    await run()
+
+    expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+      'yarn',
+      ['config', 'set', 'npmMinimalAgeGate', '72h'],
+      expect.any(Object)
+    )
+  })
+
+  it('passes workdir as cwd when running yarn config set', async () => {
+    const originalWorkspace = process.env.GITHUB_WORKSPACE
+    process.env.GITHUB_WORKSPACE = '/some'
+    core.getInput.mockImplementation((name) => {
+      if (name === 'github_token') return 'test-token'
+      if (name === 'workdir') return '/some/subdir'
+      if (name === 'npmMinimalAgeGate') return '7d'
+      return ''
+    })
+
+    await run()
+
+    expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+      'yarn',
+      ['config', 'set', 'npmMinimalAgeGate', '7d'],
+      { cwd: '/some/subdir' }
+    )
+    process.env.GITHUB_WORKSPACE = originalWorkspace
+  })
+
+  it('calls setFailed and skips upgrade when npmMinimalAgeGate is invalid', async () => {
+    core.getInput.mockImplementation((name) => {
+      if (name === 'github_token') return 'test-token'
+      if (name === 'npmMinimalAgeGate') return 'invalid-value'
+      return ''
+    })
+
+    await run()
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid npmMinimalAgeGate value')
+    )
+    expect(execFixture.getExecOutput).not.toHaveBeenCalledWith(
+      'yarn',
+      expect.arrayContaining(['config', 'set', 'npmMinimalAgeGate']),
+      expect.anything()
+    )
+    expect(auditMock.runAudit).not.toHaveBeenCalled()
   })
 })

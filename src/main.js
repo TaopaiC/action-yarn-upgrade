@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs'
 import { resolve, sep } from 'node:path'
 import * as core from '@actions/core'
+import { getExecOutput } from '@actions/exec'
 import { runAudit } from './audit.js'
 import {
   getCurrentBranch,
@@ -12,6 +13,20 @@ import {
 import { createPullRequest } from './github.js'
 import { buildCommitMessage, buildTitle, buildSummary } from './report.js'
 import { upgradeModule } from './upgrade.js'
+
+/** @type {RegExp} Matches a plain number or number with ms/s/m/h/d/w suffix. */
+const NPM_MINIMAL_AGE_GATE_RE = /^(\d*\.?\d+)(ms|s|m|h|d|w)?$/
+
+/**
+ * Validates that the npmMinimalAgeGate value is a number optionally followed
+ * by a time unit suffix (ms, s, m, h, d, w).
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isValidNpmMinimalAgeGate(value) {
+  return NPM_MINIMAL_AGE_GATE_RE.test(value)
+}
 
 /**
  * Validates that a string is a legal npm package name.
@@ -98,6 +113,22 @@ export async function run() {
     const baseBranchInput = core.getInput('base_branch')
     const prPrefix = core.getInput('pr_prefix') || 'CHORE'
     const labelsInput = core.getInput('labels')
+    const npmMinimalAgeGate = core.getInput('npmMinimalAgeGate')
+
+    if (npmMinimalAgeGate) {
+      if (!isValidNpmMinimalAgeGate(npmMinimalAgeGate)) {
+        core.setFailed(
+          `Invalid npmMinimalAgeGate value: "${npmMinimalAgeGate}". Expected a number with optional time unit suffix (ms, s, m, h, d, w).`
+        )
+        return
+      }
+      core.info(`Setting yarn npmMinimalAgeGate to: ${npmMinimalAgeGate}`)
+      await getExecOutput(
+        'yarn',
+        ['config', 'set', 'npmMinimalAgeGate', npmMinimalAgeGate],
+        { ...(workdir ? { cwd: workdir } : {}) }
+      )
+    }
 
     /** @type {string[]} */
     let modules

@@ -38,6 +38,14 @@ inputs:
       "dependencies,security"). Leave empty to add no labels.
     required: false
     default: ''
+  npmMinimalAgeGate:
+    description: >
+      Minimum package publish age required before a version is accepted. Accepts
+      a plain number or a number with a time unit suffix (ms, s, m, h, d, w) —
+      e.g. "72h" or "3d". Only applies to Yarn Berry (v2+); has no effect on
+      Yarn v1. Leave empty to skip setting this value.
+    required: false
+    default: ''
   github_token:
     description: >
       GitHub token used to create the pull request. Typically
