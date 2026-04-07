@@ -145,6 +145,33 @@ describe('audit.js', () => {
         expect(result[0].moduleName).toBe('axios')
       })
 
+      it('skips NDJSON entries where children.ID contains "deprecation"', () => {
+        const lines = [
+          JSON.stringify({
+            value: '@babel/plugin-proposal-nullish-coalescing-operator',
+            children: {
+              ID: '@babel/plugin-proposal-nullish-coalescing-operator (deprecation)',
+              Issue:
+                'This proposal has been merged to the ECMAScript standard and thus this plugin is no longer maintained.',
+              Severity: 'moderate',
+              'Vulnerable Versions': '7.18.6',
+              'Tree Versions': ['7.18.6'],
+              Dependents: ['jscodeshift@virtual:abc#npm:0.14.0']
+            }
+          }),
+          JSON.stringify({
+            value: 'axios',
+            children: {
+              ID: 1234,
+              URL: 'https://github.com/advisories/GHSA-1234-5678-abcd-efgh'
+            }
+          })
+        ].join('\n')
+        const result = parseAuditOutput(lines)
+        expect(result).toHaveLength(1)
+        expect(result[0].moduleName).toBe('axios')
+      })
+
       it('skips invalid JSON lines in NDJSON output', () => {
         const lines = [
           'not-valid-json',

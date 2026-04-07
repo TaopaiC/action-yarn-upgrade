@@ -29489,6 +29489,8 @@ function parseNdjsonAuditOutput(raw) {
       const obj = JSON.parse(line);
       const moduleName = obj.value ?? '';
       if (!moduleName) continue
+      // Skip deprecation notices — they are not security vulnerabilities.
+      if (String(obj.children?.ID ?? '').includes('deprecation')) continue
       const url = obj.children?.URL ?? '';
       const ghsaMatch = url.match(/\/advisories\/(GHSA-[^/\s]+)/);
       entries.push({ moduleName, cves: ghsaMatch ? [ghsaMatch[1]] : [] });
