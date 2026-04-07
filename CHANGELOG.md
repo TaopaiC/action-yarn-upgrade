@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.3...v1.0.4) (2026-04-07)
+
+
+### Bug Fixes
+
+* use major.minor range for zero-major packages ([#126](https://github.com/TaopaiC/action-yarn-upgrade/issues/126)) ([a14fbad](https://github.com/TaopaiC/action-yarn-upgrade/commit/a14fbad2f3758dec8d10d51c00ebee94fc0ba9c5))
+
 ## [1.0.3](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.2...v1.0.3) (2026-04-07)
 
 
