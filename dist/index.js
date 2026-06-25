@@ -34643,7 +34643,7 @@ async function upgradeModule(moduleName, workdir = '') {
         ['up', range],
         ...(workdir ? [{ cwd: workdir }] : [])
       );
-      await execExports.getExecOutput(
+      await getExecOutput(
         'yarn',
         ['dedupe', moduleName],
         ...(workdir ? [{ cwd: workdir }] : [])
