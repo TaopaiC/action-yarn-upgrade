@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.5...v1.1.0) (2026-06-25)
+
+
+### Features
+
+* Adjust module upgrade process for better version management ([#144](https://github.com/TaopaiC/action-yarn-upgrade/issues/144)) ([0483881](https://github.com/TaopaiC/action-yarn-upgrade/commit/048388190189aa2d6b56894a9bf1a9a26491f71b))
+
 ## [1.0.5](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.4...v1.0.5) (2026-06-25)
 
 
