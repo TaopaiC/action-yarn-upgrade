@@ -16,6 +16,7 @@ opens a pull request with a structured upgrade report.
    `yarn.lock` are detected first (e.g. both `^8` and `^9`), and each major
    range is upgraded independently:
    - `yarn add <module>@^<major>` — upgrades within the same major version
+   - `yarn up <module>@^<major>` — refreshes resolution to the latest in-range version
    - `yarn dedupe <module>` — collapses duplicate resolutions
    - `git checkout package.json` — restores `package.json` so only `yarn.lock`
      changes are committed

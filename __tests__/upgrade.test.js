@@ -273,7 +273,7 @@ minimatch@^9.0.0:
 
   describe('upgradeModule()', () => {
     it('returns upgraded when yarn.lock changed', async () => {
-      // Calls in order: yarn info (from), yarn add, yarn dedupe, git checkout, yarn install, git diff, git add yarn.lock, yarn info (to)
+      // Calls in order: yarn info (from), yarn add, yarn up, yarn dedupe, git checkout, yarn install, git diff, git add yarn.lock, yarn info (to)
       execFixture.getExecOutput
         .mockResolvedValueOnce({
           stdout: yarnInfoJson('4.17.20'),
@@ -281,6 +281,7 @@ minimatch@^9.0.0:
           exitCode: 0
         }) // getCurrentVersion (from)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn up
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
@@ -313,6 +314,7 @@ minimatch@^9.0.0:
           exitCode: 0
         }) // getCurrentVersion (from)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn up
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
@@ -356,6 +358,7 @@ minimatch@^9.0.0:
       execFixture.getExecOutput
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // getCurrentVersion → empty
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add (no @^)
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn up (no @^)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
@@ -393,6 +396,7 @@ minimatch@^9.0.0:
           exitCode: 0
         }) // getCurrentVersion (from) — with cwd
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn up
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
@@ -408,6 +412,11 @@ minimatch@^9.0.0:
       expect(execFixture.getExecOutput).toHaveBeenCalledWith(
         'yarn',
         ['add', 'some-pkg@^1'],
+        { cwd: workdir }
+      )
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith(
+        'yarn',
+        ['up', 'some-pkg@^1'],
         { cwd: workdir }
       )
       expect(execFixture.getExecOutput).toHaveBeenCalledWith(
@@ -442,10 +451,12 @@ minimatch@^9.0.0:
           exitCode: 0
         }) // getCurrentVersion (from)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add minimatch@^8
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn up minimatch@^8
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe (1st loop)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json (1st loop)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install (1st loop)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add minimatch@^9
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn up minimatch@^9
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe (2nd loop)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json (2nd loop)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install (2nd loop)
@@ -473,7 +484,15 @@ minimatch@^9.0.0:
         'minimatch@^8'
       ])
       expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
+        'up',
+        'minimatch@^8'
+      ])
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
         'add',
+        'minimatch@^9'
+      ])
+      expect(execFixture.getExecOutput).toHaveBeenCalledWith('yarn', [
+        'up',
         'minimatch@^9'
       ])
     })
@@ -490,6 +509,7 @@ semver@^0.8.0:
           exitCode: 0
         }) // getCurrentVersion (from)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add semver@^0.8
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn up semver@^0.8
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
@@ -528,6 +548,7 @@ semver@^0.8.0:
           exitCode: 0
         }) // getCurrentVersion (from)
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn add zero-pkg@^0.9
+        .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn up zero-pkg@^0.9
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn dedupe
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // git checkout package.json
         .mockResolvedValueOnce({ stdout: '', stderr: '', exitCode: 0 }) // yarn install
