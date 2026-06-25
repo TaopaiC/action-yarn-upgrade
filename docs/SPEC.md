@@ -25,6 +25,7 @@ workflow，自動升級指定 Node 套件，並記錄每個升級是否解決對
 
 ```bash
 yarn add $module@^$major
+yarn up $module@^$major
 yarn dedupe $module
 git checkout package.json
 yarn   # re-sync node_modules with restored package.json

@@ -133,9 +133,10 @@ export async function getInstalledMajorVersions(moduleName, workdir = '') {
  * Steps:
  *  1. Record the current installed version.
  *  2. Run `yarn add <module>@^<major>` to upgrade within the same major.
- *  3. Run `yarn dedupe <module>` to collapse duplicate resolutions.
- *  4. Restore `package.json` to avoid committing direct-dependency string changes.
- *  5. Check whether yarn.lock was modified. If yes → record new version.
+ *  3. Run `yarn up <module>@^<major>` to refresh resolutions for that range.
+ *  4. Run `yarn dedupe <module>` to collapse duplicate resolutions.
+ *  5. Restore `package.json` to avoid committing direct-dependency string changes.
+ *  6. Check whether yarn.lock was modified. If yes → record new version.
  *
  * @param {string} moduleName
  * @param {string} [workdir=''] - Working directory for yarn and git commands.
@@ -170,6 +171,11 @@ export async function upgradeModule(moduleName, workdir = '') {
       await getExecOutput(
         'yarn',
         ['add', range],
+        ...(workdir ? [{ cwd: workdir }] : [])
+      )
+      await getExecOutput(
+        'yarn',
+        ['up', range],
         ...(workdir ? [{ cwd: workdir }] : [])
       )
       await getExecOutput(
