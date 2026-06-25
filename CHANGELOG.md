@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.5](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.4...v1.0.5) (2026-06-25)
+
+
+### Bug Fixes
+
+* remove incorrect packageManager field from package.json ([#149](https://github.com/TaopaiC/action-yarn-upgrade/issues/149)) ([f832e4d](https://github.com/TaopaiC/action-yarn-upgrade/commit/f832e4da6604d280f2ca3af25ebffd7933428d2d))
+
 ## [1.0.4](https://github.com/TaopaiC/action-yarn-upgrade/compare/v1.0.3...v1.0.4) (2026-04-07)
 
 
